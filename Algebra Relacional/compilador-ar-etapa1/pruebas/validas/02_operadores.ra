@@ -1,0 +1,52 @@
+-- Un ejemplo de cada operador, con símbolos y con palabras.
+-- Las tablas usadas no se declaran: eso lo va a verificar el semántico, no el parser.
+
+σ loc = 'Rawson' AI
+sigma loc = 'Rawson' and carrera = 'LSI' (AI)
+σ (loc = 'Rawson' ∨ loc = 'Capital') ∧ ¬ (carrera ≠ 'LCC') (AI)
+π dni, nya (AI)
+pi dni, nya -> nombre AI
+ρ S (AI)
+ρ documento←dni, nombre←nya (AI)
+rho dni->documento (AI)
+
+AI ∪ AG
+AI union AG
+AI ∩ AG
+AI intersect AG
+AI - AG
+AI except AG
+
+ALUMNOS X MATERIAS
+ALUMNOS × MATERIAS
+ALUMNOS cross join MATERIAS
+
+-- theta-join, natural join y joins externos
+alumno ⋈ alumno.cuil = examen.cuil examen
+alumno join cuil = cuil2 examen
+alumno ⋈ (alumno.cuil = examen.cuil and nota > 4) examen
+alumno ⋈ examen
+alumno * examen
+alumno natural join examen
+alumno ⟕ alumno.cuil = examen.cuil examen
+alumno left outer join alumno.cuil = examen.cuil examen
+alumno right join examen
+alumno ⟗ examen
+alumno full outer join alumno.cuil = examen.cuil examen
+
+-- división (diapositiva 28)
+R1 ÷ R2
+R1 / (π A2 (R2))
+
+-- agrupamiento (diapositiva 30)
+γ count(*) -> cantidad (materia)
+γ Carrera; count(*) -> cantMaterias Materias
+gamma cuil; avg(nota) -> promedio, max(nota) -> mejor (examen)
+
+-- precedencia: los unarios ligan más fuerte; los binarios asocian a izquierda
+π nyAp σ nota > 4 alumno ⋈ examen ∪ AI
+(alumno ⋈ examen) ⋈ (σ codM = 1 materia)
+alumno ⋈ (σ codM = 1 materia)
+inscriptos = π cuil (alumno);
+rindieron = π cuil (examen);
+inscriptos - rindieron
