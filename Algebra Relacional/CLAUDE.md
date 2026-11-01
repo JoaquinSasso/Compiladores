@@ -147,7 +147,7 @@ Otras decisiones:
 - `x` es palabra reservada (ver la trampa 7).
 - `*` se acepta como join natural porque es la notación de la diapositiva 24. No genera conflictos porque no hay multiplicación.
 - Los nombres de las funciones de agregación son palabras clave. Por eso γ distingue sin resolver entre la lista de agrupamiento (identificadores) y los agregados.
-- La gramática acepta **varias consultas** en un mismo programa. Si se limita a una consulta final, como en RelaX, lo decide el análisis semántico (está pendiente).
+- La gramática acepta **varias consultas** en un mismo programa, y el análisis semántico también las permite: cada una es un resultado (a diferencia de RelaX, que admite una sola consulta final).
 
 ## El AST (`Ast.cs`)
 
