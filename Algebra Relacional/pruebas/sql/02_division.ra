@@ -1,0 +1,19 @@
+-- División con dos atributos en el divisor, en otro orden que en el dividendo:
+-- EXCEPT compara por posición, así que el generador tiene que reordenar.
+R = {
+a, b, c
+1, 'x', 10
+1, 'y', 20
+2, 'x', 10
+3, 'y', 20
+3, 'x', 10
+4, 'y', 30
+}
+S = {
+c, b
+10, 'x'
+20, 'y'
+}
+R ÷ S
+-- Con el divisor vacío, toda a de R cumple
+R ÷ σ c > 100 (S)

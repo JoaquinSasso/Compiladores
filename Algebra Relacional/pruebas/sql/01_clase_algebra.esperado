@@ -1,0 +1,92 @@
+nyAp
+Ana
+Juan
+
+cuil
+30
+50
+
+nyAp | codM
+Ana | 1
+Ana | 2
+Ana | 3
+Andrea | NULL
+Juan | 1
+Juan | 3
+Tomas | NULL
+
+cuil | cant | mejor
+10 | 3 | 10
+20 | 3 | 10
+
+cuil
+20
+
+cuil
+10
+20
+
+cuil
+10
+20
+30
+50
+
+A.nyAp | B.nyAp
+Ana | Andrea
+Ana | Tomas
+Andrea | Tomas
+Juan | Ana
+Juan | Andrea
+Juan | Tomas
+
+codM | nomM | cuil
+1 | Base de Datos | 10
+1 | Base de Datos | 20
+2 | Programacion Procedural | 20
+3 | Algoritmos | 10
+3 | Algoritmos | 20
+4 | Optativa | NULL
+
+cuil | codM
+10 | 1
+10 | 3
+20 | 1
+20 | 2
+20 | 3
+20 | 4
+30 | 2
+
+total
+4
+
+nyAp
+Andrea
+Tomas
+
+a
+1
+2
+
+nyAp | nomM
+Ana | Algoritmos
+Ana | Base de Datos
+Ana | Optativa
+Ana | Programacion Procedural
+Andrea | Programacion Procedural
+Juan | Algoritmos
+Juan | Base de Datos
+
+nyAp
+Juan
+
+cuil
+
+codM | total
+1 | 19
+2 | 10
+3 | 4
+
+alumno.cuil | examen.cuil | nota
+10 | 10 | 10
+20 | 20 | 10

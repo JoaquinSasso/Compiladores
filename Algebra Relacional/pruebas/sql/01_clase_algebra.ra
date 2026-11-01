@@ -1,0 +1,76 @@
+group: ClaseAlgebra
+materia = {
+codM, nomM, areaConoc
+1, 'Base de Datos', 'ISyBD'
+2, 'Programacion Procedural', 'AyP'
+3, 'Algoritmos', 'AyP'
+4, 'Optativa', 'AyP'
+}
+alumno = {
+cuil, nyAp, dire
+10, 'Juan', 'Ignacio de la Roza 1000 Oeste'
+20, 'Ana', 'Ignacio de la Roza 90 Este'
+30, 'Andrea', 'Av.Libertador 100 Oeste'
+50, 'Tomas', 'Aberastain 223 Este'}
+
+examen = {
+cuil, codM, fecha, nota
+10, 1, '10/10/2020', 10
+10, 1, '11/9/20202', 2
+10, 3, '11/9/20201', 2
+20, 1, '13/9/20202', 7
+20, 2, '13/10/2020', 10
+20, 3, '01/9/20202', 2
+}
+
+boleta = {
+cuil, codM, fecha
+10, 1, '11/9/20202'
+10, 3, '11/9/20201'
+20, 1, '13/9/20202'
+20, 2, '13/10/2020'
+20, 3, '01/9/20202'
+20, 4, '01/9/20202'
+30, 2, '10/7/20202'
+}
+
+-- 1. Alumnos que aprobaron algún examen
+aprobados = π cuil (σ nota >= 4 (examen))
+π nyAp (alumno ⋈ aprobados)
+-- 2. Alumnos que no rindieron ningún examen
+π cuil (alumno) - π cuil (examen)
+-- 3. Join externo izquierdo: los que no rindieron quedan con NULL
+π nyAp, codM (alumno ⟕ examen)
+-- 4. Agrupamiento con dos agregados
+γ cuil; count(*) -> cant, max(nota) -> mejor (examen)
+-- 5. División: inscriptos en todas las materias del área AyP
+π cuil, codM (boleta) ÷ π codM (σ areaConoc = 'AyP' (materia))
+-- 6. Intersección y 7. unión
+π cuil (boleta) ∩ π cuil (examen)
+π cuil (alumno) ∪ π cuil (boleta)
+-- 8. Producto con renombre y selección (pares de alumnos)
+π A.nyAp, B.nyAp (σ A.cuil < B.cuil (ρ A (alumno) × ρ B (alumno)))
+-- 9. Join externo derecho natural: la materia sin examen aparece con su codM
+π codM, nomM, cuil (examen ⟖ materia)
+-- 10. Join externo completo natural sobre dos atributos
+π cuil, codM (examen) ⟗ π cuil, codM (boleta)
+-- 11. Agregado sin agrupamiento
+γ count(*) -> total (alumno)
+-- 12. Condición con not y or
+π nyAp (σ not (cuil = 10 or cuil = 20) (alumno))
+-- 13. Tabla con datos dentro de una expresión
+π a ({a, b
+1, 'x'
+2, 'y'})
+-- 14. Dos joins naturales seguidos
+π nyAp, nomM (alumno ⋈ boleta ⋈ materia)
+-- 15. Variables que usan otras variables
+desaprobados = σ nota < 4 and codM = 1 (examen)
+quienes = π cuil (desaprobados)
+π nyAp (quienes ⋈ alumno)
+-- 16. Resultado vacío
+π cuil (examen) ∩ ρ cuil←codM (π codM (materia))
+-- 17. Suma por grupo
+γ codM; sum(nota) -> total (examen)
+-- 18. Theta-join: las dos columnas cuil se distinguen con el calificador
+π alumno.cuil, examen.cuil, nota (alumno ⋈ alumno.cuil = examen.cuil and nota > 7 examen)

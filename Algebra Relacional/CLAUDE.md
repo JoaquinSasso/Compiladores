@@ -19,12 +19,13 @@ Elegimos un **compilador de álgebra relacional que genera SQL**. Toma el álgeb
 | 1. Scanner + parser (reconocedor) | ✅ Hecha |
 | 2. Construcción del AST | ✅ Hecha: el programa imprime el árbol |
 | 3. Análisis semántico (tabla de símbolos, esquemas, chequeos) | ✅ Hecha: el programa imprime el esquema de cada sentencia |
-| 4. Generación de SQL | ⏳ **Siguiente** |
+| 4. Generación de SQL | ✅ Hecha: el programa imprime un script SQL para SQLite |
 | 5. Integración web (Blazor WASM) | Futuro, fuera del alcance de la evaluación |
 
 ## Entorno
 
 - **Sistema operativo:** Ubuntu 26.04.
+- **Python 3** (solo para las pruebas: su módulo `sqlite3` ejecuta el SQL generado).
 - **.NET 10** (`dotnet-sdk-10.0`). En `AR.csproj` tiene que decir `<TargetFramework>net10.0</TargetFramework>`.
 - **Coco/R para C#**, versión "Apr 19, 2011". Se ejecuta con `mono Coco.exe AR.atg` (se baja de https://ssw.jku.at/Research/Projects/Coco/). El aviso "The runtime version supported by this application is unavailable" de mono es inofensivo.
 
@@ -33,8 +34,10 @@ Elegimos un **compilador de álgebra relacional que genera SQL**. Toma el álgeb
 ```bash
 mono Coco.exe AR.atg      # regenera Scanner.cs y Parser.cs a partir de la gramática
 ./probar.sh               # compila y corre todas las pruebas
-dotnet run -- archivo.ra        # análisis completo: imprime el esquema de cada sentencia (o los errores)
-dotnet run -- --ast archivo.ra  # solo sintaxis: imprime el AST
+dotnet run -- archivo.ra             # compila: imprime el script SQL (o los errores)
+dotnet run -- --esquemas archivo.ra  # hasta el semántico: imprime el esquema de cada sentencia
+dotnet run -- --ast archivo.ra       # solo sintaxis: imprime el AST
+dotnet run -- archivo.ra | python3 pruebas/ejecutar_sql.py   # ejecuta el SQL en SQLite
 ```
 
 Coco/R tiene que terminar con `0 errors detected` y **sin ningún `LL1 warning`**. Un aviso LL(1) no se ignora: significa que el parser puede elegir mal una alternativa.
@@ -51,12 +54,15 @@ Todo el proyecto vive en la raíz de `Algebra Relacional/` (el repositorio git e
 | `Scanner.cs`, `Parser.cs` | **Generados por Coco/R. Nunca editarlos a mano**: se sobrescriben en cada regeneración. Se versionan igual, para poder compilar sin mono. Las copias `*.old` que deja Coco/R están en `.gitignore`. |
 | `Ast.cs` | Las clases de los nodos del AST y la impresión del árbol (`ImpresorAST`). |
 | `Semantico.cs` | Análisis semántico: tabla de símbolos, esquemas (`Esquema`, `Atributo`, `Dominio`) y chequeos. |
-| `Program.cs` | Punto de entrada: lee el archivo, agrega el BOM, ejecuta el parser y el semántico, e imprime los esquemas (con `--ast`, solo el AST). |
+| `Generador.cs` | Generación de SQL para SQLite a partir del AST validado. |
+| `Program.cs` | Punto de entrada: lee el archivo, agrega el BOM y ejecuta parser → semántico → generador. Imprime el SQL (con `--esquemas`, los esquemas; con `--ast`, solo el AST). |
 | `probar.sh` | Corre todas las pruebas. |
 | `pruebas/validas/*.ra` | Programas sin errores de sintaxis (se corren con `--ast`; pueden usar tablas no declaradas). |
 | `pruebas/invalidas/*.ra` | Programas que tienen que dar un error de sintaxis. |
 | `pruebas/ast/*.ra` + `*.esperado` | El árbol impreso tiene que ser idéntico al `.esperado`, que se escribió a mano. |
-| `pruebas/semanticas/*.ra` + `*.esperado` | La salida completa (esquemas o errores semánticos) tiene que ser idéntica al `.esperado`. |
+| `pruebas/semanticas/*.ra` + `*.esperado` | La salida de `--esquemas` (esquemas o errores semánticos) tiene que ser idéntica al `.esperado`. |
+| `pruebas/sql/*.ra` + `*.esperado` | El SQL generado se ejecuta en SQLite; el resultado de cada consulta tiene que ser idéntico al `.esperado`, calculado a mano. |
+| `pruebas/ejecutar_sql.py` | Ejecuta un script SQL en una base SQLite en memoria e imprime el resultado de cada consulta. |
 
 ## Reglas y trampas importantes
 
@@ -197,31 +203,38 @@ Recorre el AST y calcula el **esquema de salida** de cada `ExpRel` (lista ordena
 
 **Pruebas:** `pruebas/semanticas/*.ra` + `*.esperado`: la salida completa (esquemas o errores) tiene que ser idéntica. Una prueba por cada tipo de error, más `01_esquemas.ra` con el esquema de cada operador.
 
-## Próximo paso: generación de SQL (etapa 4)
+## El generador de SQL (`Generador.cs`)
 
-**Destino:** SQLite, para poder ejecutarlo en el navegador más adelante. El generador recorre el AST validado y produce un script.
+**Destino:** SQLite ≥ 3.39 (por `RIGHT` y `FULL JOIN`), para poder ejecutarlo en el navegador más adelante. Recorre el AST ya validado (usa los esquemas que dejó el semántico en cada nodo) y produce un script.
+
+**La regla central:** el SQL de cada nodo es un `SELECT` cuyas columnas son **exactamente las de su esquema, en el mismo orden, con el nombre completo entre comillas** (`"alumno.cuil"`). Así, después de un join, `alumno.cuil` y `examen.cuil` siguen siendo columnas distintas, y el padre siempre sabe cómo se llama cada columna del hijo. Cada hijo se usa como subconsulta con un alias único (`(...) AS t1`, `t2`, ... con un contador). Solo el `SELECT` final de cada consulta pone nombres cortos (`cuil`), salvo que haya dos con el mismo nombre (entonces `alumno.cuil`), y agrega `ORDER BY 1, 2, ...` para que el resultado salga siempre en el mismo orden.
 
 | Entrada | SQL |
 |---|---|
-| Asignación de una `TablaDatos` | `CREATE TABLE nombre (...)` + `INSERT INTO ...` |
-| Otra asignación | CTE: `WITH nombre AS (...)` |
-| Consulta | `SELECT ...` |
-| `Relacion` | `SELECT * FROM nombre` |
+| Asignación de una `TablaDatos` | `CREATE TABLE nombre (...)` (columnas con nombre corto; `NUMERIC`, `TEXT`, `BOOLEAN` o sin tipo) + `INSERT INTO ... VALUES` |
+| Otra asignación (variable) | No genera nada en su lugar: es un CTE (`WITH nombre AS (...)`) en cada consulta que la usa, directa o indirectamente, en orden de definición |
+| Consulta | `WITH ... SELECT <nombres cortos> FROM (E) AS tN ORDER BY ...;` |
+| `Relacion` (tabla) | `SELECT "cuil" AS "alumno.cuil", ... FROM "alumno"` |
+| `Relacion` (variable) | `SELECT * FROM "variable"` (el CTE ya tiene los nombres completos) |
+| `TablaDatos` dentro de una expresión | `SELECT 1 AS "a", 'x' AS "b" UNION ALL SELECT 2, 'y'` |
 | `σ c (E)` | `SELECT * FROM (E) AS tN WHERE c` |
-| `π a, b (E)` | `SELECT DISTINCT a, b FROM (E) AS tN` (**siempre DISTINCT**: el álgebra trabaja con conjuntos) |
-| `∪ ∩ −` | `UNION`, `INTERSECT`, `EXCEPT` (ya eliminan duplicados) |
-| `×` | `CROSS JOIN` |
-| theta-join | `JOIN ... ON c` |
-| join natural | `NATURAL JOIN` |
-| `⟕ ⟖ ⟗` | `LEFT / RIGHT / FULL OUTER JOIN` (SQLite ≥ 3.39) |
-| `γ` | `GROUP BY` (sin agrupamiento, la consulta no lleva `GROUP BY`) |
-| `ρ S` | alias de la subconsulta |
-| `ρ b←a` | `SELECT a AS b, ...` |
-| `÷` | No existe en SQL: **reescribir en el AST antes de generar** como `π_Z(R) − π_Z((π_Z(R) × S) − R)`. Hay que reordenar las columnas según el esquema, porque `EXCEPT` compara por posición. |
+| `π a, b (E)` | `SELECT DISTINCT ...` (**siempre DISTINCT**: el álgebra trabaja con conjuntos) |
+| `∪ ∩ −` | `SELECT * FROM (L) AS t1 UNION/INTERSECT/EXCEPT SELECT * FROM (R) AS t2` (en SQLite los miembros de un `UNION` no pueden ir entre paréntesis) |
+| `×` | `CROSS JOIN` con la lista de columnas explícita |
+| theta-join y externos con condición | `JOIN` / `LEFT JOIN` / `RIGHT JOIN` / `FULL JOIN` ... `ON c` |
+| join natural (y externos sin condición) | **No se usa `NATURAL JOIN`** (las columnas tienen nombres completos distintos): `JOIN ... ON t1."alumno.cuil" = t2."examen.cuil"`. En `⟖` y `⟗` el atributo común sale de `COALESCE(izq, der)` |
+| `γ` | `COUNT/SUM/AVG/MIN/MAX` + `GROUP BY` (sin agrupamiento no lleva `GROUP BY`) |
+| `ρ S`, `ρ b←a` | `SELECT t."viejo" AS "nuevo", ...` posición por posición |
+| `÷` | No existe en SQL. Se genera directamente la equivalencia `π_Z(R) − π_Z((π_Z(R) × S) − R)` con `EXCEPT`; en la resta interna R se reordena como (Z, atributos de S), porque `EXCEPT` compara por posición. (Se eligió generarla en SQL en lugar de reescribir el AST, para no tener que volver a calcular los esquemas de nodos nuevos.) |
 
-- Cada subconsulta lleva un alias único (`t1`, `t2`, ... con un contador).
-- **Problema conocido a resolver:** después de un join hay columnas con el mismo nombre (`alumno.cuil` y `examen.cuil`). Con el esquema que calcula el semántico, el generador tiene que escribir la lista de columnas explícita, con alias únicos entre comillas (por ejemplo `"alumno.cuil"`), en lugar de usar `SELECT *`.
-- **Verificación:** ejecutar el SQL generado en SQLite con el dataset `ClaseAlgebra` y comparar los resultados con los que da RelaX para los mismos ejercicios.
+- Constantes: números tal cual, cadenas entre `'...'`, y `null`/`true`/`false` como `NULL`/`TRUE`/`FALSE` (SQLite muestra los booleanos como 1 y 0).
+- Las filas repetidas en los datos de una tabla no se eliminan (el `CREATE TABLE` las guarda tal cual).
+- **Verificación:** `pruebas/sql/*.ra` se compilan, el SQL se ejecuta con `pruebas/ejecutar_sql.py` (módulo `sqlite3` de Python, porque no hace falta instalar el cliente `sqlite3`) y la salida se compara con el `.esperado`, que tiene **los resultados calculados a mano** con el dataset `ClaseAlgebra`. Pendiente: contrastarlos también con RelaX.
+
+## Próximos pasos
+
+- Una función de biblioteca `Compilar(string fuente) → { sql, errores, ast }`, sin dependencias de consola (ver abajo).
+- Traducir al castellano los mensajes de error de sintaxis de Coco/R (trampa 9).
 
 ## Integración futura con la web
 

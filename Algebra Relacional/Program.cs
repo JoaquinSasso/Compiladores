@@ -2,15 +2,16 @@ using System;
 using System.IO;
 using System.Text;
 
-// Etapa 3: el compilador valida la entrada, hace el análisis semántico e
-// imprime el esquema de cada sentencia.
-// Uso: dotnet run -- [--ast] archivo.ra
-//   --ast  solo análisis sintáctico: imprime el AST y no hace el semántico
+// El compilador completo: scanner → parser (AST) → semántico → generador de SQL.
+// Uso: dotnet run -- [--ast | --esquemas] archivo.ra
+//   (sin opción)  imprime el script SQL
+//   --ast         solo análisis sintáctico: imprime el AST
+//   --esquemas    hasta el semántico: imprime el esquema de cada sentencia
 class Program {
     static int Main(string[] args) {
-        bool soloAst = args.Length == 2 && args[0] == "--ast";
-        if (args.Length != 1 && !soloAst) {
-            Console.WriteLine("Uso: AR [--ast] <archivo>");
+        string modo = args.Length == 2 ? args[0] : "--sql";
+        if (args.Length < 1 || args.Length > 2 || (modo != "--sql" && modo != "--ast" && modo != "--esquemas")) {
+            Console.WriteLine("Uso: AR [--ast | --esquemas] <archivo>");
             return 2;
         }
         string archivo = args[args.Length - 1];
@@ -35,12 +36,12 @@ class Program {
             Console.WriteLine(parser.errors.count + " error(es) de sintaxis");
             return 1;
         }
-        if (soloAst) {
+        if (modo == "--ast") {
             Console.Write(ImpresorAST.Imprimir(parser.programa));
             return 0;
         }
 
-        // Etapa 3: análisis semántico sobre el AST.
+        // Análisis semántico sobre el AST.
         var semantico = new Semantico();
         semantico.Analizar(parser.programa);
         if (semantico.Errores.Count > 0) {
@@ -49,11 +50,16 @@ class Program {
             return 1;
         }
 
-        // Sin errores: el esquema de salida de cada sentencia.
-        foreach (var ins in parser.programa.Instrucciones) {
-            string titulo = ins is Asignacion a ? a.Nombre : "Consulta (línea " + ins.Linea + ")";
-            Console.WriteLine(titulo + " " + ins.Expr.Esquema);
+        if (modo == "--esquemas") {
+            foreach (var ins in parser.programa.Instrucciones) {
+                string titulo = ins is Asignacion a ? a.Nombre : "Consulta (línea " + ins.Linea + ")";
+                Console.WriteLine(titulo + " " + ins.Expr.Esquema);
+            }
+            return 0;
         }
+
+        // Generación de SQL a partir del AST validado.
+        Console.Write(new Generador().Generar(parser.programa));
         return 0;
     }
 }

@@ -5,6 +5,8 @@
 #   pruebas/ast/         → el árbol impreso tiene que ser igual al archivo .esperado
 #   pruebas/semanticas/  → la salida completa (esquemas o errores semánticos)
 #                          tiene que ser igual al archivo .esperado
+#   pruebas/sql/         → el SQL generado se ejecuta en SQLite y el resultado
+#                          de cada consulta tiene que ser igual al .esperado
 dotnet build -c Release -o bin/out > /dev/null || { echo "Falló la compilación"; exit 1; }
 fallos=0
 for f in pruebas/validas/*.ra; do
@@ -25,6 +27,17 @@ comparar() {
   fi
 }
 for f in pruebas/ast/*.ra; do comparar "$f" --ast; done
-for f in pruebas/semanticas/*.ra; do comparar "$f" ""; done
+for f in pruebas/semanticas/*.ra; do comparar "$f" --esquemas; done
+# el SQL se ejecuta con el módulo sqlite3 de Python (pruebas/ejecutar_sql.py)
+for f in pruebas/sql/*.ra; do
+  esperado="${f%.ra}.esperado"
+  if diff <(dotnet bin/out/AR.dll "$f" | python3 pruebas/ejecutar_sql.py) "$esperado" > /dev/null; then
+    echo "bien   $f"
+  else
+    echo "FALLA  $f (el resultado en SQLite no coincide con $esperado):"
+    diff <(dotnet bin/out/AR.dll "$f" | python3 pruebas/ejecutar_sql.py) "$esperado"
+    fallos=$((fallos+1))
+  fi
+done
 echo "$fallos prueba(s) fallaron"
 exit $fallos
