@@ -1,0 +1,5 @@
+# Salida de dotnet build / probar.sh
+bin/
+obj/
+# Copias de respaldo que deja Coco/R al regenerar
+*.old

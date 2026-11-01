@@ -1,0 +1,9 @@
+Programa
+└── Consulta
+    └── ∪
+        ├── ⋈ (natural)
+        │   ├── π nyAp
+        │   │   └── σ nota > 4
+        │   │       └── alumno
+        │   └── examen
+        └── AI

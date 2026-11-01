@@ -1,0 +1,316 @@
+﻿/*----------------------------------------------------------------------------
+  AR.atg — Compilador de álgebra relacional a SQL (versión 1)
+  Etapa 2: el parser construye el AST (clases en Ast.cs).
+
+  Sintaxis tomada de RelaX y de las diapositivas de Base de Datos 1:
+  cada operador se puede escribir con su símbolo o con una palabra.
+
+  Cómo leer las producciones con atributos:
+    Unario<out ExpRel e>   → la producción "devuelve" el nodo e (como un return)
+    (. código C# .)        → acción semántica: se ejecuta en ese punto
+    <. ... .>              → igual que <...>, pero se usa cuando el atributo tiene
+                             tipos genéricos (List<X>), para que Coco/R no confunda
+                             el > de List<X> con el cierre del atributo
+    t                      → el último token reconocido (t.val = su texto)
+    la                     → el próximo token (lookahead), todavía no consumido
+
+  IMPORTANTE: este archivo está guardado en UTF-8 con BOM, para que Coco/R
+  lea bien los símbolos griegos. La entrada del compilador también tiene que
+  estar en UTF-8 con BOM (Program.cs se encarga).
+----------------------------------------------------------------------------*/
+using System.Collections.Generic;
+
+COMPILER AR
+
+  public Programa programa;            // el AST completo, para usarlo desde Program.cs
+
+  // Operadores de comparación: los usa el resolver del theta-join.
+  static readonly HashSet<string> opRel = new HashSet<string> {
+    "=", "<>", "!=", "≠", "<", ">", "<=", ">=", "≤", "≥"
+  };
+
+  // ¿La sentencia empieza con "nombre = ..."? Mira dos tokens hacia adelante.
+  bool EsAsignacion() {
+    scanner.ResetPeek();
+    return la.kind == _ident && scanner.Peek().val == "=";
+  }
+
+  // Después de un join: ¿lo que sigue es una condición o la relación derecha?
+  //   R ⋈ a = b S        → condición (ident seguido de un comparador)
+  //   R ⋈ R.a = S.b S    → condición (ident seguido de un punto)
+  //   R ⋈ (a = b) S      → condición (se mira adentro del paréntesis)
+  //   R ⋈ S              → relación
+  //   R ⋈ (σ a = 1 S)    → relación
+  bool EsCondicionJoin() {
+    scanner.ResetPeek();
+    Token x = la;
+    while (x.val == "(") x = scanner.Peek();          // saltea paréntesis de apertura
+    if (x.kind == _numero || x.kind == _cadena) return true;
+    string v = x.val.ToLower();
+    if (v == "not" || v == "¬" || v == "-") return true;
+    if (x.kind == _ident) {
+      Token sig = scanner.Peek();
+      return sig.val == "." || opRel.Contains(sig.val);
+    }
+    return false;
+  }
+
+  // 'Base de Datos' → Base de Datos
+  static string SinComillas(string s) { return s.Substring(1, s.Length - 2); }
+
+IGNORECASE
+
+CHARACTERS
+  letra       = 'A'..'Z' + 'a'..'z' + '_'.
+  digito      = '0'..'9'.
+  cr          = '\r'.
+  lf          = '\n'.
+  tab         = '\t'.
+  noComilla   = ANY - '\'' - cr - lf.
+  sinFinLinea = ANY - cr - lf.
+
+TOKENS
+  ident  = letra { letra | digito }.
+  numero = digito { digito } [ '.' digito { digito } ].
+  cadena = '\'' { noComilla } '\''.
+  grupo  = "group:" { sinFinLinea }.          // la línea "group: Nombre del dataset"
+
+COMMENTS FROM "--" TO lf
+COMMENTS FROM "/*" TO "*/"
+
+IGNORE cr + lf + tab
+
+PRODUCTIONS
+
+/*---------------------------- Programa ------------------------------------*/
+
+AR                                        (. Instruccion s; programa = new Programa(); .)
+= [ grupo                                 (. programa.Grupo = t.val.Substring(6).Trim(); .)
+  ]
+  { Sentencia<out s>                      (. programa.Instrucciones.Add(s); .)
+    [ ";" ]
+  } .
+
+Sentencia<out Instruccion s>              (. s = null; ExpRel e; string nombre; Token pos; .)
+= IF(EsAsignacion())
+  ident                                   (. nombre = t.val; pos = t; .)
+  "=" Expr<out e>                         (. s = new Asignacion(nombre, e, pos); .)
+|                                         (. pos = la; .)
+  Expr<out e>                             (. s = new Consulta(e, pos); .)
+.
+
+/*----------------------- Expresiones relacionales -------------------------
+  Precedencia (de menor a mayor), igual que en RelaX y en la cátedra:
+    Expr   : ∪  −             (unión, diferencia)
+    Inter  : ∩                (intersección)
+    Prod   : ×  ⋈  *  ⟕ ⟖ ⟗  ÷ (productos, joins, división)
+    Unario : π  σ  ρ  γ       (operadores unarios)
+  Todos los binarios asocian a izquierda: en cada vuelta del bucle, el árbol
+  armado hasta ahora pasa a ser el hijo izquierdo del nodo nuevo.
+---------------------------------------------------------------------------*/
+
+Expr<out ExpRel e>                        (. ExpRel der; TipoOp op; Token pos; .)
+= Inter<out e>
+  {                                       (. pos = la; .)
+    OpUnion<out op>
+    Inter<out der>                        (. e = new OpBinaria(op, e, der, null, pos); .)
+  } .
+
+OpUnion<out TipoOp op>                    (. op = TipoOp.Union; .)
+= ( "∪" | "union" )
+| ( "-" | "except" )                      (. op = TipoOp.Diferencia; .)
+.
+
+Inter<out ExpRel e>                       (. ExpRel der; Token pos; .)
+= Prod<out e>
+  {                                       (. pos = la; .)
+    ( "∩" | "intersect" )
+    Prod<out der>                         (. e = new OpBinaria(TipoOp.Interseccion, e, der, null, pos); .)
+  } .
+
+Prod<out ExpRel e>                        (. ExpRel der; TipoOp op; Condicion c; Token pos; .)
+= Unario<out e>
+  {                                       (. pos = la; .)
+    OpProd<out op, out c>
+    Unario<out der>                       (. e = new OpBinaria(op, e, der, c, pos); .)
+  } .
+
+// En los joins, c queda en null cuando no hay condición (join natural).
+OpProd<out TipoOp op, out Condicion c>    (. op = TipoOp.Producto; c = null; .)
+= ( "×" | "⨯" | "x" | "cross" "join" )
+| ( "*" | "natural" "join" )              (. op = TipoOp.Join; .)
+| ( "⋈" | "join" | "inner" "join" )       (. op = TipoOp.Join; .)
+  [ IF(EsCondicionJoin()) Cond<out c> ]
+| ( "⟕" | "left"  [ "outer" ] "join" )    (. op = TipoOp.JoinIzq; .)
+  [ IF(EsCondicionJoin()) Cond<out c> ]
+| ( "⟖" | "right" [ "outer" ] "join" )    (. op = TipoOp.JoinDer; .)
+  [ IF(EsCondicionJoin()) Cond<out c> ]
+| ( "⟗" | "full"  [ "outer" ] "join" )    (. op = TipoOp.JoinCompleto; .)
+  [ IF(EsCondicionJoin()) Cond<out c> ]
+| ( "÷" | "/" )                           (. op = TipoOp.Division; .)
+.
+
+Unario<out ExpRel e>                      (. e = null; ExpRel hijo; Condicion c; Token pos;
+                                             List<ItemProy> items; string rel; List<ParRenombre> pares;
+                                             List<AtributoRef> grupo; List<FuncionAgregada> aggs; .)
+= ( "π" | "pi" )                          (. pos = t; .)
+  ListaProy<out items>
+  Unario<out hijo>                        (. e = new Proyeccion(items, hijo, pos); .)
+| ( "σ" | "sigma" )                       (. pos = t; .)
+  Cond<out c>
+  Unario<out hijo>                        (. e = new Seleccion(c, hijo, pos); .)
+| ( "ρ" | "rho" )                         (. pos = t; .)
+  Renombre<out rel, out pares>
+  Unario<out hijo>                        (. if (pares == null) e = new RenombreRel(rel, hijo, pos);
+                                             else e = new RenombreAttr(pares, hijo, pos); .)
+| ( "γ" | "gamma" )                       (. pos = t; .)
+  Agrupar<out grupo, out aggs>
+  Unario<out hijo>                        (. e = new Agrupamiento(grupo, aggs, hijo, pos); .)
+| "(" Expr<out e> ")"                     // los paréntesis no generan nodo: ya están en la forma del árbol
+| RelInline<out e>
+| ident                                   (. e = new Relacion(t.val, t); .)
+.
+
+/*--------------------------- Argumentos -----------------------------------*/
+
+ListaProy<. out List<ItemProy> items .>       (. items = new List<ItemProy>(); ItemProy i; .)
+= ElemProy<out i>                         (. items.Add(i); .)
+  { "," ElemProy<out i>                   (. items.Add(i); .)
+  } .
+
+ElemProy<out ItemProy i>                  (. AtributoRef a; string alias = null; .)
+= Attr<out a>
+  [ Flecha ident                          (. alias = t.val; .)
+  ]                                       (. i = new ItemProy(a, alias); .)
+.
+
+// ρ S         → rel = "S", pares = null      (renombra la relación)
+// ρ b←a, d←c  → rel = null, pares = [...]    (renombra atributos)
+Renombre<. out string rel, out List<ParRenombre> pares .>
+                                          (. rel = null; pares = null; string id; Token tok; ParRenombre p; .)
+= ident                                   (. id = t.val; tok = t; .)
+  [ ParRen<id, tok, out p>                (. pares = new List<ParRenombre> { p }; .)
+    { "," ident                           (. id = t.val; tok = t; .)
+      ParRen<id, tok, out p>              (. pares.Add(p); .)
+    }
+  ]                                       (. if (pares == null) rel = id; .)
+.
+
+ParRen<string id, Token tok, out ParRenombre p>
+                                          (. p = null; AtributoRef a; .)
+= FlechaIzq Attr<out a>                   (. p = new ParRenombre(a, id); .)                   // nuevo ← viejo
+| Flecha ident                            (. p = new ParRenombre(new AtributoRef(null, id, tok), t.val); .) // viejo → nuevo
+.
+
+Agrupar<. out List<AtributoRef> grupo, out List<FuncionAgregada> aggs .>
+                                          (. grupo = new List<AtributoRef>(); aggs = new List<FuncionAgregada>();
+                                             FuncionAgregada f; .)
+= [ ListaAttr<out grupo> ] [ ";" ]
+  Agregado<out f>                         (. aggs.Add(f); .)
+  { "," Agregado<out f>                   (. aggs.Add(f); .)
+  } .
+
+Agregado<out FuncionAgregada f>           (. f = null; string fn; AtributoRef a = null; Token pos; .)
+= FuncAgg<out fn>                         (. pos = t; .)
+  "(" ( "*" | Attr<out a> ) ")"
+  Flecha ident                            (. f = new FuncionAgregada(fn, a, t.val, pos); .)
+.
+
+FuncAgg<out string fn>
+= ( "count" | "sum" | "avg" | "min" | "max" )   (. fn = t.val.ToLower(); .)
+.
+
+ListaAttr<. out List<AtributoRef> lista .>    (. lista = new List<AtributoRef>(); AtributoRef a; .)
+= Attr<out a>                             (. lista.Add(a); .)
+  { "," Attr<out a>                       (. lista.Add(a); .)
+  } .
+
+Attr<out AtributoRef a>                   (. string n1; Token pos; .)
+= ident                                   (. n1 = t.val; pos = t; a = new AtributoRef(null, n1, pos); .)
+  [ "." ident                             (. a = new AtributoRef(n1, t.val, pos); .)
+  ] .
+
+Flecha    = "→" | "->" .
+FlechaIzq = "←" | "<-" .
+
+/*--------------------------- Condiciones ----------------------------------
+  Misma idea de precedencia: or < and < not < comparación.
+---------------------------------------------------------------------------*/
+
+Cond<out Condicion c>                     (. Condicion der; Token pos; .)
+= CondY<out c>
+  { ( "∨" | "or" )                        (. pos = t; .)
+    CondY<out der>                        (. c = new CondLogica("or", c, der, pos); .)
+  } .
+
+CondY<out Condicion c>                    (. Condicion der; Token pos; .)
+= CondNo<out c>
+  { ( "∧" | "and" )                       (. pos = t; .)
+    CondNo<out der>                       (. c = new CondLogica("and", c, der, pos); .)
+  } .
+
+CondNo<out Condicion c>                   (. c = null; TerminoCond izq, der; string op; Token pos; .)
+= ( "¬" | "not" )                         (. pos = t; .)
+  CondNo<out c>                           (. c = new Negacion(c, pos); .)
+| "(" Cond<out c> ")"
+| Operando<out izq>
+  OpRel<out op>                           (. pos = t; .)
+  Operando<out der>                       (. c = new Comparacion(izq, op, der, pos); .)
+.
+
+Operando<out TerminoCond o>               (. o = null; AtributoRef a; string signo = ""; .)
+= Attr<out a>                             (. o = a; .)
+| [ "-"                                   (. signo = "-"; .)
+  ] numero                                (. o = new Constante(TipoDato.Numero, signo + t.val, t); .)
+| cadena                                  (. o = new Constante(TipoDato.Cadena, SinComillas(t.val), t); .)
+.
+
+// Las variantes de cada comparador se normalizan: ≠ != <> → "<>", ≤ → "<=", ≥ → ">=".
+OpRel<out string op>                      (. op = null; .)
+= ( "="                                   (. op = "="; .)
+  | ( "<>" | "!=" | "≠" )                 (. op = "<>"; .)
+  | "<"                                   (. op = "<"; .)
+  | ">"                                   (. op = ">"; .)
+  | ( "<=" | "≤" )                        (. op = "<="; .)
+  | ( ">=" | "≥" )                        (. op = ">="; .)
+  ) .
+
+/*------------------- Relación con datos (datasets) ------------------------
+  materia = {
+    codM, nomM, areaConoc
+    1, 'Base de Datos', 'ISyBD'
+  }
+  Una fila nueva empieza cuando aparece un valor que no va precedido de coma.
+  Que cada fila tenga tantos valores como columnas lo verifica el semántico.
+---------------------------------------------------------------------------*/
+
+RelInline<out ExpRel e>                   (. e = null; var cols = new List<ColumnaDef>(); var filas = new List<List<Constante>>();
+                                             ColumnaDef col; List<Constante> fila; Token pos; .)
+= "{"                                     (. pos = t; .)
+  Columna<out col>                        (. cols.Add(col); .)
+  { "," Columna<out col>                  (. cols.Add(col); .)
+  }
+  { Fila<out fila>                        (. filas.Add(fila); .)
+  }
+  "}"                                     (. e = new TablaDatos(cols, filas, pos); .)
+.
+
+Columna<out ColumnaDef c>                 (. AtributoRef a; string tipo = null; .)
+= Attr<out a>
+  [ ":" ident                             (. tipo = t.val.ToLower(); .)
+  ]                                       (. c = new ColumnaDef(a, tipo); .)
+.
+
+Fila<. out List<Constante> f .>               (. f = new List<Constante>(); Constante v; .)
+= Valor<out v>                            (. f.Add(v); .)
+  { "," Valor<out v>                      (. f.Add(v); .)
+  } .
+
+Valor<out Constante v>                    (. v = null; string signo = ""; .)
+= [ "-"                                   (. signo = "-"; .)
+  ] numero                                (. v = new Constante(TipoDato.Numero, signo + t.val, t); .)
+| cadena                                  (. v = new Constante(TipoDato.Cadena, SinComillas(t.val), t); .)
+| ident                                   (. v = new Constante(TipoDato.Simbolo, t.val, t); .)   // null, true, false
+.
+
+END AR.

@@ -1,0 +1,7 @@
+-- variantes de ρ, π y γ
+ρ S (AI)
+ρ documento←dni, nombre←AI.nya (AI)
+rho dni->documento AI
+pi dni, nya -> nombre AI
+γ count(*) -> cantidad (materia)
+gamma Carrera; COUNT(*) -> cantMaterias, avg(nota) -> prom Materias

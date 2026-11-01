@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 
-// Etapa 1: el compilador solo dice si la entrada es válida.
+// Etapa 2: el compilador valida la entrada e imprime el AST.
 // Uso: dotnet run -- archivo.ra
 class Program {
     static int Main(string[] args) {
@@ -27,7 +27,8 @@ class Program {
         parser.Parse();
 
         if (parser.errors.count == 0) {
-            Console.WriteLine("OK: la entrada es válida");
+            // Etapa 2: si no hubo errores, mostramos el AST que armó el parser.
+            Console.Write(ImpresorAST.Imprimir(parser.programa));
             return 0;
         }
         Console.WriteLine(parser.errors.count + " error(es)");

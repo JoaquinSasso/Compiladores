@@ -1,0 +1,10 @@
+Programa
+├── Consulta
+│   └── σ a = 1 ∨ (b = 2 ∧ ¬(c = 3))
+│       └── R
+├── Consulta
+│   └── σ (a = 1 ∨ b = 2) ∧ c <> 'x'
+│       └── R
+└── Consulta
+    └── σ ¬(a <= -5 ∧ b >= 2)
+        └── R

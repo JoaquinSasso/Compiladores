@@ -1,0 +1,4 @@
+-- asociatividad a izquierda y precedencia de ∩ sobre ∪
+A - B - C
+A ∪ B ∩ C
+A ∩ B ∪ C

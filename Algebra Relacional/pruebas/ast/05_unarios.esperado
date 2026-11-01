@@ -1,0 +1,19 @@
+Programa
+├── Consulta
+│   └── ρ S
+│       └── AI
+├── Consulta
+│   └── ρ documento ← dni, nombre ← AI.nya
+│       └── AI
+├── Consulta
+│   └── ρ documento ← dni
+│       └── AI
+├── Consulta
+│   └── π dni, nya → nombre
+│       └── AI
+├── Consulta
+│   └── γ count(*) → cantidad
+│       └── materia
+└── Consulta
+    └── γ Carrera; count(*) → cantMaterias, avg(nota) → prom
+        └── Materias

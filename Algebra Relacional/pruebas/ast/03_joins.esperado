@@ -1,0 +1,30 @@
+Programa
+├── Consulta
+│   └── ⋈ (natural)
+│       ├── ⋈ alumno.cuil = examen.cuil
+│       │   ├── alumno
+│       │   └── examen
+│       └── materia
+├── Consulta
+│   └── ⋈ a = b
+│       ├── R
+│       └── S
+├── Consulta
+│   └── ⋈ (natural)
+│       ├── R
+│       └── σ a = 1
+│           └── S
+├── Consulta
+│   └── ⟕ R.a = S.b
+│       ├── R
+│       └── S
+├── Consulta
+│   └── ⋈ (natural)
+│       ├── R
+│       └── S
+└── Consulta
+    └── ÷
+        ├── ×
+        │   ├── R
+        │   └── S
+        └── T

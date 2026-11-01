@@ -263,7 +263,7 @@ public class Scanner {
 		start[33] = 42; 
 		start[8800] = 44; 
 		start[62] = 54; 
-		start[8804] = 47; 
+		start[8804] = 46; 
 		start[8805] = 48; 
 		start[123] = 49; 
 		start[125] = 50; 
@@ -572,7 +572,7 @@ public class Scanner {
 				else {t.kind = 61; break;}
 			case 54:
 				recEnd = pos; recKind = 62;
-				if (ch == '=') {AddCh(); goto case 46;}
+				if (ch == '=') {AddCh(); goto case 47;}
 				else {t.kind = 62; break;}
 
 		}

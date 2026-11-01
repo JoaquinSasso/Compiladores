@@ -1,0 +1,4 @@
+-- precedencia en condiciones: or < and < not
+σ a = 1 or b = 2 and not c = 3 R
+σ (a = 1 ∨ b = 2) ∧ c ≠ 'x' R
+σ ¬(a ≤ -5 ∧ b ≥ 2) R

@@ -1,0 +1,7 @@
+-- el resolver decide si después del join viene una condición o la relación
+alumno ⋈ alumno.cuil = examen.cuil examen ⋈ materia
+R ⋈ (a = b) S
+R ⋈ (σ a = 1 S)
+R left join R.a = S.b S
+R * S
+R x S ÷ T
