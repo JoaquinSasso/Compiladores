@@ -27,7 +27,7 @@ Coco/R itself) does not fall under the GNU General Public License.
 -->begin
 using System;
 using System.IO;
-using System.Collections.Generic;
+using System.Collections;
 
 -->namespace
 
@@ -240,7 +240,7 @@ public class Scanner {
 	int col;          // column number of current character
 	int line;         // line number of current character
 	int oldEols;      // EOLs that appeared in a comment;
-	static readonly Dictionary<int, int> start; // maps first token character to start state
+	static readonly Hashtable start; // maps first token character to start state
 
 	Token tokens;     // list of tokens already peeked (first token is a dummy)
 	Token pt;         // current peek token
@@ -249,7 +249,7 @@ public class Scanner {
 	int tlen;         // length of current token
 	
 	static Scanner() {
-		start = new Dictionary<int, int>(128);
+		start = new Hashtable(128);
 -->initialization
 	}
 	
@@ -327,7 +327,8 @@ public class Scanner {
 		t = new Token();
 		t.pos = pos; t.col = col; t.line = line; t.charPos = charPos;
 		int state;
-		state = start.ContainsKey(ch) ? start[ch] : 0;
+		if (start.ContainsKey(ch)) { state = (int) start[ch]; }
+		else { state = 0; }
 		tlen = 0; AddCh();
 		
 		switch (state) {
@@ -378,4 +379,3 @@ public class Scanner {
 	public void ResetPeek () { pt = tokens; }
 
 } // end Scanner
-
