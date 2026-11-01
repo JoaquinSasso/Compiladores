@@ -1,0 +1,3 @@
+-- línea 4 col 1: la fila tiene 2 valores, pero la tabla tiene 3 columnas
+-- línea 5 col 1: la fila tiene 4 valores, pero la tabla tiene 3 columnas
+2 error(es) semántico(s)

@@ -45,6 +45,7 @@ public class Consulta : Instruccion {                             // expresión 
 /*----------------------- Expresiones relacionales -------------------------*/
 
 public abstract class ExpRel : Nodo {
+    public Esquema Esquema;                                // lo completa el análisis semántico (Semantico.cs)
     protected ExpRel(Token t) : base(t) {}
     public abstract string Etiqueta();                     // texto del nodo al imprimir
     public abstract IEnumerable<ExpRel> Hijos();
@@ -132,9 +133,10 @@ public class OpBinaria : ExpRel {
         { TipoOp.Producto, "×" }, { TipoOp.Join, "⋈" }, { TipoOp.JoinIzq, "⟕" },
         { TipoOp.JoinDer, "⟖" }, { TipoOp.JoinCompleto, "⟗" }, { TipoOp.Division, "÷" },
     };
+    public string Simbolo => simbolo[Op];
     public bool EsJoin => Op == TipoOp.Join || Op == TipoOp.JoinIzq || Op == TipoOp.JoinDer || Op == TipoOp.JoinCompleto;
     public override string Etiqueta() =>
-        simbolo[Op] + (!EsJoin ? "" : Cond == null ? " (natural)" : " " + Cond.Texto(true));
+        Simbolo + (!EsJoin ? "" : Cond == null ? " (natural)" : " " + Cond.Texto(true));
     public override IEnumerable<ExpRel> Hijos() => new[] { Izq, Der };
 }
 

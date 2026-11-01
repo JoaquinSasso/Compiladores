@@ -1,0 +1,17 @@
+alumno = {
+cuil, nyAp, carrera
+10, 'Juan', 'LSI'
+20, 'Ana', 'LCC'
+}
+examen = {
+cuil, codM, nota
+10, 1, 8
+20, 1, 3
+}
+materia = {
+codM, nomM
+1, 'Base de Datos'
+}
+ρ nuevo←apellido (alumno)
+ρ a←cuil, b←cuil (alumno)
+ρ cuil←nyAp (alumno)

@@ -18,8 +18,8 @@ Elegimos un **compilador de álgebra relacional que genera SQL**. Toma el álgeb
 |---|---|
 | 1. Scanner + parser (reconocedor) | ✅ Hecha |
 | 2. Construcción del AST | ✅ Hecha: el programa imprime el árbol |
-| 3. Análisis semántico (tabla de símbolos, esquemas, chequeos) | ⏳ **Siguiente** |
-| 4. Generación de SQL | Pendiente |
+| 3. Análisis semántico (tabla de símbolos, esquemas, chequeos) | ✅ Hecha: el programa imprime el esquema de cada sentencia |
+| 4. Generación de SQL | ⏳ **Siguiente** |
 | 5. Integración web (Blazor WASM) | Futuro, fuera del alcance de la evaluación |
 
 ## Entorno
@@ -33,7 +33,8 @@ Elegimos un **compilador de álgebra relacional que genera SQL**. Toma el álgeb
 ```bash
 mono Coco.exe AR.atg      # regenera Scanner.cs y Parser.cs a partir de la gramática
 ./probar.sh               # compila y corre todas las pruebas
-dotnet run -- archivo.ra  # compila un archivo e imprime el AST (o los errores)
+dotnet run -- archivo.ra        # análisis completo: imprime el esquema de cada sentencia (o los errores)
+dotnet run -- --ast archivo.ra  # solo sintaxis: imprime el AST
 ```
 
 Coco/R tiene que terminar con `0 errors detected` y **sin ningún `LL1 warning`**. Un aviso LL(1) no se ignora: significa que el parser puede elegir mal una alternativa.
@@ -49,11 +50,13 @@ Todo el proyecto vive en la raíz de `Algebra Relacional/` (el repositorio git e
 | `Scanner.frame`, `Parser.frame` | Plantillas de Coco/R originales (misma versión que `Coco.exe`, con fin de línea CRLF). No modificarlas. |
 | `Scanner.cs`, `Parser.cs` | **Generados por Coco/R. Nunca editarlos a mano**: se sobrescriben en cada regeneración. Se versionan igual, para poder compilar sin mono. Las copias `*.old` que deja Coco/R están en `.gitignore`. |
 | `Ast.cs` | Las clases de los nodos del AST y la impresión del árbol (`ImpresorAST`). |
-| `Program.cs` | Punto de entrada: lee el archivo, agrega el BOM, ejecuta el parser e imprime el AST. |
+| `Semantico.cs` | Análisis semántico: tabla de símbolos, esquemas (`Esquema`, `Atributo`, `Dominio`) y chequeos. |
+| `Program.cs` | Punto de entrada: lee el archivo, agrega el BOM, ejecuta el parser y el semántico, e imprime los esquemas (con `--ast`, solo el AST). |
 | `probar.sh` | Corre todas las pruebas. |
-| `pruebas/validas/*.ra` | Programas que tienen que compilar sin errores. |
-| `pruebas/invalidas/*.ra` | Programas que tienen que dar error. |
+| `pruebas/validas/*.ra` | Programas sin errores de sintaxis (se corren con `--ast`; pueden usar tablas no declaradas). |
+| `pruebas/invalidas/*.ra` | Programas que tienen que dar un error de sintaxis. |
 | `pruebas/ast/*.ra` + `*.esperado` | El árbol impreso tiene que ser idéntico al `.esperado`, que se escribió a mano. |
+| `pruebas/semanticas/*.ra` + `*.esperado` | La salida completa (esquemas o errores semánticos) tiene que ser idéntica al `.esperado`. |
 
 ## Reglas y trampas importantes
 
@@ -169,31 +172,32 @@ TerminoCond (abstracta)
 
 Todos los nodos guardan `Linea` y `Col`. Los paréntesis no generan nodo: ya están representados en la forma del árbol. Las variantes de cada operador se normalizan en el parser (`≠`, `!=` y `<>` pasan a `"<>"`, `∧` pasa a `"and"`, etc.).
 
-## Próximo paso: análisis semántico (etapa 3)
+## El análisis semántico (`Semantico.cs`)
 
-**Objetivo:** recorrer el AST y calcular el **esquema de salida** de cada nodo (lista ordenada de columnas, cada una con calificador, nombre y tipo), verificando las reglas en el camino. Es conveniente hacerlo en una clase aparte (`Semantico.cs`), no dentro del `.atg`. Los errores se informan con línea y columna, en castellano.
+Recorre el AST y calcula el **esquema de salida** de cada `ExpRel` (lista ordenada de `Atributo { Calificador, Nombre, Tipo: Dominio }`), verificando las reglas en el camino. El esquema queda guardado en el nodo (`ExpRel.Esquema`), para que lo use el generador de SQL. Los errores se informan como `-- línea L col C: mensaje`, en castellano, y Coco/R usa el mismo formato (`errMsgFormat`) para los de sintaxis.
 
-**Tabla de símbolos:** relación o variable → esquema. Siguiendo la regla de RelaX, al definir una tabla el calificador de sus columnas es el nombre de la tabla (`materia.codM`).
+**Clases:** `Dominio` (`Numero`, `Cadena`, `Booleano`, `Desconocido`), `Atributo`, `Esquema` y `Semantico`. Ninguna coincide con un no terminal (ojo: `Columna` sí es un no terminal, por eso la clase se llama `Atributo`).
 
-**Chequeos a implementar:**
+**Tabla de símbolos:** nombre → esquema y línea de definición. Un nombre cuya definición tuvo errores igual queda registrado (con esquema `null`), para que sus usos no den "no está definida".
 
-- La relación o variable usada está definida, y antes de usarse.
-- No hay nombres definidos dos veces.
-- Cada atributo existe en el esquema del hijo, y no es ambiguo (si aparece en dos relaciones, hay que calificarlo).
-- Cada fila de una tabla tiene tantos valores como columnas.
-- El tipo de cada columna se deduce del primer valor no nulo, o se toma del tipo declarado. Todos los valores de la columna tienen que ser compatibles con ese tipo.
-- **∪, ∩ y − exigen relaciones "unión compatibles"**, como define la cátedra: mismo grado y mismos dominios, posición por posición.
-- El join natural requiere al menos un atributo en común (diapositiva 24).
-- **División `R ÷ S`:** los atributos de S tienen que estar incluidos en los de R. El resultado son los atributos Z de R que no están en S.
-- **Comparaciones:** los dos lados tienen que ser del mismo tipo.
-- **γ:** `sum` y `avg` solo sobre números. El esquema de salida son las columnas de agrupamiento más los alias de los agregados.
-- **ρ de atributos:** el atributo viejo existe. **ρ de relación:** cambia el calificador de todas las columnas.
-- **π con alias:** la columna toma el nombre nuevo.
-- Decidir si se permite más de una consulta por programa.
+**Decisiones tomadas (no cambiarlas sin motivo):**
 
-**Pruebas:** agregar `pruebas/semanticas/` con programas que tengan que dar un error semántico específico, y comparar el mensaje esperado.
+- **Calificadores:** al definir una tabla con datos, sus columnas llevan el nombre de la tabla (`materia.codM`). Una variable (`x = expresión`) **conserva los calificadores de su expresión**, como RelaX, que reemplaza la variable por su expresión: `aprobados = π cuil (examen)` tiene la columna `examen.cuil`, no `aprobados.cuil`. Si no fuera así, `t = alumno ⋈θ examen` tendría dos `t.cuil`.
+- **Los nombres no distinguen mayúsculas** (relaciones, variables y atributos), igual que las palabras clave y que SQLite.
+- **Se permiten varias consultas** en un mismo programa; cada una es un resultado. Un programa sin consultas (solo un dataset) también es válido.
+- **Dominios:** el declarado (`number`, `string`, `boolean`; `date` se trata como cadena) o el del primer valor no nulo. `null` entra en cualquier columna. Una columna con solo `null` es `Desconocido`, compatible con todo. Un identificador suelto que no sea `null`/`true`/`false` es error (las cadenas van entre comillas).
+- **π con alias y ρ de atributos** cambian el nombre y **conservan el calificador** (`π cuil → id (alumno)` da `alumno.id`). **ρ S** cambia el calificador de todas las columnas. **γ:** las columnas de agrupamiento conservan el calificador; los agregados no llevan (`cant`). `count`, `sum` y `avg` dan número; `min` y `max`, el dominio del atributo; solo `count` acepta `*`.
+- **∪ ∩ −:** mismo grado y dominios compatibles posición por posición; el resultado toma los nombres de la izquierda.
+- **× y theta-join:** concatenan los esquemas. Si una columna aparece igual en los dos lados (`R × R`) es error: hay que renombrar con ρ.
+- **Join natural (también los externos sin condición):** al menos un atributo en común por nombre, sin mirar el calificador; los comunes aparecen una vez, con el calificador de la izquierda. Si un común aparece dos veces en un mismo lado, es error.
+- **`R ÷ S`:** cada atributo de S está en R (una sola vez y con dominio compatible); el resultado son los de R que no están en S, y tiene que quedar alguno.
+- **Comparaciones:** los dos lados con dominios compatibles.
+- **Ningún esquema puede tener dos veces la misma columna** (mismo calificador y nombre): se chequea después de π, ρ y γ.
+- **Sin errores en cascada:** si el esquema de un subárbol no se puede calcular, el método devuelve `null` y los nodos de arriba no siguen chequeando.
 
-## Después: generación de SQL (etapa 4)
+**Pruebas:** `pruebas/semanticas/*.ra` + `*.esperado`: la salida completa (esquemas o errores) tiene que ser idéntica. Una prueba por cada tipo de error, más `01_esquemas.ra` con el esquema de cada operador.
+
+## Próximo paso: generación de SQL (etapa 4)
 
 **Destino:** SQLite, para poder ejecutarlo en el navegador más adelante. El generador recorre el AST validado y produce un script.
 

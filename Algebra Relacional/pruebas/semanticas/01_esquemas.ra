@@ -1,0 +1,31 @@
+-- sin errores: el esquema de salida de cada operador
+alumno = {
+cuil, nyAp, carrera
+10, 'Juan', 'LSI'
+20, 'Ana', 'LCC'
+}
+examen = {
+cuil, codM, nota
+10, 1, 8
+20, 1, 3
+}
+materia = {
+codM, nomM
+1, 'Base de Datos'
+}
+aprobados = π cuil (σ nota >= 4 examen)
+π nyAp (alumno ⋈ aprobados)
+alumno ⋈ alumno.cuil = examen.cuil examen
+alumno ⟕ examen
+π cuil -> id, nyAp (alumno)
+ρ A (alumno)
+ρ documento←cuil (alumno)
+rho nyAp->nombre alumno
+γ carrera; count(*) -> cant (alumno)
+γ codM; avg(nota) -> prom, max(nota) -> mejor (examen)
+π cuil (alumno) ∪ π cuil (examen)
+π cuil (alumno) - aprobados
+ρ A (alumno) × ρ B (alumno)
+π cuil, codM (examen) ÷ π codM (materia)
+σ NYAP = 'Juan' ALUMNO              -- los nombres no distinguen mayúsculas
+π A.cuil (ρ A (alumno))

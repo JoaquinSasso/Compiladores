@@ -1,0 +1,2 @@
+-- línea 15 col 23: ∩ exige relaciones unión compatibles: la columna 2 es cadena a la izquierda ('alumno.nyAp') y número a la derecha ('examen.nota')
+1 error(es) semántico(s)

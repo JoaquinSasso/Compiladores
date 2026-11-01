@@ -1,0 +1,2 @@
+-- línea 15 col 8: ⋈: el join natural necesita al menos un atributo en común, y no hay ninguno entre (alumno.cuil, alumno.nyAp, alumno.carrera) y (materia.codM, materia.nomM)
+1 error(es) semántico(s)

@@ -1,0 +1,2 @@
+-- línea 15 col 3: el atributo 'cuil' es ambiguo: puede ser alumno.cuil o examen.cuil; calificalo
+1 error(es) semántico(s)

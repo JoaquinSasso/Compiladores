@@ -1,0 +1,3 @@
+-- línea 15 col 12: sum solo se aplica a atributos numéricos, y 'nyAp' es cadena
+-- línea 16 col 3: avg(*) no está permitido: solo count acepta *
+2 error(es) semántico(s)

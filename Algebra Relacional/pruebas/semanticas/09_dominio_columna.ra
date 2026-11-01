@@ -1,0 +1,5 @@
+r = {
+a, b:number
+1, 2
+'uno', 'dos'
+}

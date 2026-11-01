@@ -1,0 +1,7 @@
+-- el dominio sale del tipo declarado o del primer valor que no es null
+t = {
+a, b:number, c, d:string, e
+null, null, true, null, null
+1, 2, false, 'x', null
+}
+t

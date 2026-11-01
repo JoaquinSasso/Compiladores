@@ -1,0 +1,2 @@
+-- línea 15 col 45: ⋈: en el join natural el atributo 'cuil' aparece más de una vez en la relación izquierda (alumno.cuil, alumno.nyAp, alumno.carrera, examen.cuil, examen.codM, examen.nota); renombralo con ρ o proyectá
+1 error(es) semántico(s)

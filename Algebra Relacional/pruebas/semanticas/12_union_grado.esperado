@@ -1,0 +1,2 @@
+-- línea 15 col 8: ∪ exige relaciones unión compatibles: la izquierda tiene grado 3 (alumno.cuil, alumno.nyAp, alumno.carrera) y la derecha grado 2 (materia.codM, materia.nomM)
+1 error(es) semántico(s)

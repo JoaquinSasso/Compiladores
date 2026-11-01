@@ -1,0 +1,3 @@
+-- línea 4 col 1: el valor 'uno' es cadena, pero la columna 'a' es número
+-- línea 4 col 8: el valor 'dos' es cadena, pero la columna 'b' es número
+2 error(es) semántico(s)

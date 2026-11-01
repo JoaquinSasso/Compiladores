@@ -1,0 +1,4 @@
+-- línea 15 col 9: el atributo 'apellido' no existe; los disponibles son: alumno.cuil, alumno.nyAp, alumno.carrera
+-- línea 16 col 13: el atributo 'cuil' se renombra dos veces
+-- línea 17 col 1: ρ: la columna 'alumno.cuil' quedaría repetida
+3 error(es) semántico(s)

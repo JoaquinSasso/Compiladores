@@ -1,0 +1,4 @@
+-- línea 15 col 8: ÷: el atributo 'nyAp' del divisor no está en el dividendo (examen.cuil, examen.codM, examen.nota)
+-- línea 15 col 8: ÷: el atributo 'carrera' del divisor no está en el dividendo (examen.cuil, examen.codM, examen.nota)
+-- línea 16 col 17: ÷: el dividendo no tiene atributos fuera de los del divisor, así que el resultado no tendría columnas
+3 error(es) semántico(s)

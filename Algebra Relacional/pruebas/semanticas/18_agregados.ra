@@ -1,0 +1,16 @@
+alumno = {
+cuil, nyAp, carrera
+10, 'Juan', 'LSI'
+20, 'Ana', 'LCC'
+}
+examen = {
+cuil, codM, nota
+10, 1, 8
+20, 1, 3
+}
+materia = {
+codM, nomM
+1, 'Base de Datos'
+}
+γ carrera; sum(nyAp) -> s (alumno)
+γ avg(*) -> p (examen)
