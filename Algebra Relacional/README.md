@@ -4,6 +4,9 @@ Traduce álgebra relacional (la sintaxis de RelaX y de Base de Datos 1) a un
 script SQL para SQLite: valida la sintaxis y la semántica y, si no hay errores,
 imprime el SQL.
 
+Para ver cómo se compila una consulta paso a paso, y cómo se escribe cada
+operador con el teclado, leer [GUIA.md](GUIA.md).
+
 ## Archivos
 
 | Archivo | Qué es |

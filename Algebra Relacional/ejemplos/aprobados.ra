@@ -1,0 +1,21 @@
+-- Ejemplo de la exposición: nombres de los alumnos que aprobaron algún examen.
+-- Escrito solo con el teclado latino (sin símbolos griegos).
+group: Exposicion
+
+alumno = {
+cuil, nyAp, carrera
+10, 'Juan', 'LSI'
+20, 'Ana', 'LCC'
+30, 'Andrea', 'LSI'
+}
+
+examen = {
+cuil, codM, nota
+10, 1, 8
+10, 2, 2
+20, 1, 3
+}
+
+-- Consulta: primero una variable y después la consulta final
+aprobados = pi cuil (sigma nota >= 4 examen)
+pi nyAp (alumno join aprobados)
