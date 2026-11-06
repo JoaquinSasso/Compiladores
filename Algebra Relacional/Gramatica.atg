@@ -35,6 +35,37 @@
 
 COMPILER AR
 
+// Operadores de comparación: los usa el resolver del theta-join.
+static readonly HashSet<string> opRel = new HashSet<string> {
+  "=", "<>", "!=", "≠", "<", ">", "<=", ">=", "≤", "≥"
+};
+
+// ¿La sentencia empieza con "nombre = ..."? Mira dos tokens hacia adelante.
+bool EsAsignacion() {
+  scanner.ResetPeek();
+  return la.kind == _ident && scanner.Peek().val == "=";
+}
+
+// Después de un join: ¿lo que sigue es una condición o la relación derecha?
+//   R ⋈ a = b S        → condición (ident seguido de un comparador)
+//   R ⋈ R.a = S.b S    → condición (ident seguido de un punto)
+//   R ⋈ (a = b) S      → condición (se mira adentro del paréntesis)
+//   R ⋈ S              → relación
+//   R ⋈ (σ a = 1 S)    → relación
+bool EsCondicionJoin() {
+  scanner.ResetPeek();
+  Token x = la;
+  while (x.val == "(") x = scanner.Peek();          // saltea paréntesis de apertura
+  if (x.kind == _numero || x.kind == _cadena) return true;
+  string v = x.val.ToLower();
+  if (v == "not" || v == "¬" || v == "-") return true;
+  if (x.kind == _ident) {
+    Token sig = scanner.Peek();
+    return sig.val == "." || opRel.Contains(sig.val);
+  }
+  return false;
+}
+
 IGNORECASE
 
 CHARACTERS
