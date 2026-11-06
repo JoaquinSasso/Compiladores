@@ -12,6 +12,7 @@ operador con el teclado, leer [GUIA.md](GUIA.md).
 | Archivo | Qué es |
 |---|---|
 | `AR.atg` | La gramática con sus acciones semánticas. **Es el único archivo que se edita para cambiar el lenguaje.** Está en UTF-8 con BOM: no le saquen el BOM o Coco/R deja de reconocer σ, π, ⋈. |
+| `Gramatica.atg` | La gramática sola, sin atributos ni acciones, para leerla y analizarla aparte. **Se genera** desde `AR.atg` con `python extraer_gramatica.py`: no se edita a mano. |
 | `Ast.cs` | Las clases de los nodos del árbol y la impresión del árbol. |
 | `Semantico.cs` | Análisis semántico: tabla de símbolos, esquemas y chequeos. |
 | `Generador.cs` | Generación del SQL. |
@@ -29,6 +30,7 @@ operador con el teclado, leer [GUIA.md](GUIA.md).
 
 ```bash
 mono Coco.exe AR.atg                              # generar Scanner.cs y Parser.cs
+python3 extraer_gramatica.py                      # regenerar Gramatica.atg (la gramática sin acciones)
 dotnet run -- pruebas/validas/01_clase_algebra.ra # ver el SQL (o los errores)
 dotnet run -- pruebas/validas/01_clase_algebra.ra | python3 pruebas/ejecutar_sql.py  # ejecutarlo
 dotnet run -- --esquemas pruebas/validas/01_clase_algebra.ra  # ver los esquemas
@@ -43,6 +45,7 @@ Hace falta el SDK de .NET 10, Python 3 y Git for Windows (por Git Bash, para
 
 ```bash
 ./Coco.exe AR.atg                                 # generar Scanner.cs y Parser.cs
+python extraer_gramatica.py                       # regenerar Gramatica.atg (la gramática sin acciones)
 dotnet run -- pruebas/validas/01_clase_algebra.ra # ver el SQL (o los errores)
 dotnet run -- pruebas/validas/01_clase_algebra.ra | python pruebas/ejecutar_sql.py  # ejecutarlo
 ./probar.sh                                       # correr todas las pruebas
@@ -54,4 +57,15 @@ Microsoft Store). `probar.sh` elige solo el que funcione. Al regenerar con Coco/
 fines de línea: `git diff --ignore-cr-at-eol` lo confirma.
 
 Coco/R tiene que terminar con `0 errors detected` y **sin avisos "LL1 warning"**.
+
+`Gramatica.atg` también se puede pasar sola por Coco/R para verificar que la gramática
+es LL(1). Se genera en otra carpeta para no pisar `Parser.cs` y `Scanner.cs`; con
+`-trace F` se listan los conjuntos FIRST y FOLLOW en `trace.txt`:
+
+```bash
+./Coco.exe Gramatica.atg -o /tmp/gramatica -trace F
+```
+
+`probar.sh` verifica que `Gramatica.atg` esté al día con `AR.atg` y que Coco/R la acepte sin avisos.
+
 Requiere .NET 10 (`net10.0` en `AR.csproj`), mono para ejecutar `Coco.exe` y Python 3 para las pruebas de SQL.

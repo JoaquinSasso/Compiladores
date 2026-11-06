@@ -3,3 +3,5 @@ bin/
 obj/
 # Copias de respaldo que deja Coco/R al regenerar
 *.old
+# Salida de Coco.exe -trace
+trace.txt

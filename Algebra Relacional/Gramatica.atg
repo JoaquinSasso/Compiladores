@@ -1,0 +1,188 @@
+﻿/*----------------------------------------------------------------------------
+  Gramatica.atg — Gramática del compilador de álgebra relacional a SQL
+
+  ARCHIVO GENERADO a partir de AR.atg con extraer_gramatica.py: no editarlo
+  a mano. Es la misma gramática que usa el compilador, sin los atributos ni
+  las acciones semánticas (el código C# que arma el AST).
+
+  Notación (EBNF de Coco/R):
+    "x"        terminal (palabra clave o símbolo)
+    ident ...  terminales definidos en TOKENS
+    [ ... ]    opcional (cero o una vez)
+    { ... }    repetición (cero o más veces)
+    ( ... )    agrupamiento
+    a | b      alternativas
+    IGNORECASE las palabras clave no distinguen mayúsculas
+
+  La gramática es LL(1) salvo en dos puntos, que se resuelven con un
+  resolver IF(...) (una condición que mira tokens hacia adelante):
+    EsAsignacion()     una sentencia que empieza con ident es una asignación
+                       si el token siguiente es "=".
+    EsCondicionJoin()  después de un join sigue una condición (theta-join) si,
+                       salteando los "(" iniciales, el primer token es un
+                       número, una cadena, "not", "¬" o "-", o es un ident
+                       seguido de "." o de un comparador. Si no, sigue la
+                       relación derecha (join natural).
+
+  Si se sacan los dos IF(...), Coco/R informa los "LL1 warning" de esos
+  conflictos (en Sentencia y en OpProd).
+
+  Para analizarla con Coco/R sin pisar el Parser.cs y el Scanner.cs del
+  compilador, se genera en otra carpeta (-o). Con -trace F además lista los
+  conjuntos FIRST y FOLLOW en trace.txt (queda en esta carpeta):
+    ./Coco.exe Gramatica.atg -o <otra carpeta> -trace F
+----------------------------------------------------------------------------*/
+
+COMPILER AR
+
+IGNORECASE
+
+CHARACTERS
+  letra       = 'A'..'Z' + 'a'..'z' + '_'.
+  digito      = '0'..'9'.
+  cr          = '\r'.
+  lf          = '\n'.
+  tab         = '\t'.
+  noComilla   = ANY - '\'' - cr - lf.
+  sinFinLinea = ANY - cr - lf.
+
+TOKENS
+  ident  = letra { letra | digito }.
+  numero = digito { digito } [ '.' digito { digito } ].
+  cadena = '\'' { noComilla } '\''.
+  grupo  = "group:" { sinFinLinea }.          // la línea "group: Nombre del dataset"
+
+COMMENTS FROM "--" TO lf
+COMMENTS FROM "/*" TO "*/"
+
+IGNORE cr + lf + tab
+
+PRODUCTIONS
+
+/*---------------------------- Programa ------------------------------------*/
+
+AR = [ grupo ] { Sentencia [ ";" ] } .
+
+Sentencia
+  = IF(EsAsignacion()) ident "=" Expr
+  | Expr
+  .
+
+/*----------------------- Expresiones relacionales -------------------------
+  Precedencia (de menor a mayor), igual que en RelaX y en la cátedra:
+    Expr   : ∪  −             (unión, diferencia)
+    Inter  : ∩                (intersección)
+    Prod   : ×  ⋈  *  ⟕ ⟖ ⟗  ÷ (productos, joins, división)
+    Unario : π  σ  ρ  γ       (operadores unarios)
+  Todos los binarios asocian a izquierda: en cada vuelta del bucle, el árbol
+  armado hasta ahora pasa a ser el hijo izquierdo del nodo nuevo.
+---------------------------------------------------------------------------*/
+
+Expr = Inter { OpUnion Inter } .
+
+OpUnion
+  = ( "∪" | "union" )
+  | ( "-" | "except" )
+  .
+
+Inter = Prod { ( "∩" | "intersect" ) Prod } .
+
+Prod = Unario { OpProd Unario } .
+
+OpProd
+  = ( "×" | "⨯" | "x" | "cross" "join" )
+  | ( "*" | "natural" "join" )
+  | ( "⋈" | "join" | "inner" "join" ) [ IF(EsCondicionJoin()) Cond ]
+  | ( "⟕" | "left" [ "outer" ] "join" ) [ IF(EsCondicionJoin()) Cond ]
+  | ( "⟖" | "right" [ "outer" ] "join" ) [ IF(EsCondicionJoin()) Cond ]
+  | ( "⟗" | "full" [ "outer" ] "join" ) [ IF(EsCondicionJoin()) Cond ]
+  | ( "÷" | "/" )
+  .
+
+Unario
+  = ( "π" | "pi" ) ListaProy Unario
+  | ( "σ" | "sigma" ) Cond Unario
+  | ( "ρ" | "rho" ) Renombre Unario
+  | ( "γ" | "gamma" ) Agrupar Unario
+  | "(" Expr ")"
+  | RelInline
+  | ident
+  .
+
+/*--------------------------- Argumentos -----------------------------------*/
+
+ListaProy = ElemProy { "," ElemProy } .
+
+ElemProy = Attr [ Flecha ident ] .
+
+Renombre = ident [ ParRen { "," ident ParRen } ] .
+
+ParRen
+  = FlechaIzq Attr
+  | Flecha ident
+  .
+
+Agrupar = [ ListaAttr ] [ ";" ] Agregado { "," Agregado } .
+
+Agregado = FuncAgg "(" ( "*" | Attr ) ")" Flecha ident .
+
+FuncAgg = ( "count" | "sum" | "avg" | "min" | "max" ) .
+
+ListaAttr = Attr { "," Attr } .
+
+Attr = ident [ "." ident ] .
+
+Flecha
+  = "→"
+  | "->"
+  .
+
+FlechaIzq
+  = "←"
+  | "<-"
+  .
+
+/*--------------------------- Condiciones ----------------------------------
+  Misma idea de precedencia: or < and < not < comparación.
+---------------------------------------------------------------------------*/
+
+Cond = CondY { ( "∨" | "or" ) CondY } .
+
+CondY = CondNo { ( "∧" | "and" ) CondNo } .
+
+CondNo
+  = ( "¬" | "not" ) CondNo
+  | "(" Cond ")"
+  | Operando OpRel Operando
+  .
+
+Operando
+  = Attr
+  | [ "-" ] numero
+  | cadena
+  .
+
+OpRel = ( "=" | ( "<>" | "!=" | "≠" ) | "<" | ">" | ( "<=" | "≤" ) | ( ">=" | "≥" ) ) .
+
+/*------------------- Relación con datos (datasets) ------------------------
+  materia = {
+    codM, nomM, areaConoc
+    1, 'Base de Datos', 'ISyBD'
+  }
+  Una fila nueva empieza cuando aparece un valor que no va precedido de coma.
+  Que cada fila tenga tantos valores como columnas lo verifica el semántico.
+---------------------------------------------------------------------------*/
+
+RelInline = "{" Columna { "," Columna } { Fila } "}" .
+
+Columna = Attr [ ":" ident ] .
+
+Fila = Valor { "," Valor } .
+
+Valor
+  = [ "-" ] numero
+  | cadena
+  | ident
+  .
+
+END AR.

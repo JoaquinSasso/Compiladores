@@ -12,6 +12,27 @@ dotnet build -c Release -o bin/out > /dev/null || { echo "Falló la compilación
 # y python3 es un alias de la Microsoft Store que no funciona.
 if python3 -c "" 2> /dev/null; then python=python3; else python=python; fi
 fallos=0
+# Gramatica.atg (la gramática sin acciones) tiene que estar al día con AR.atg
+if $python extraer_gramatica.py --verificar; then echo "bien   Gramatica.atg está al día"; else fallos=$((fallos+1)); fi
+# ...y Coco/R la tiene que aceptar sola, sin avisos LL(1). Se genera en una
+# carpeta aparte para no pisar Parser.cs y Scanner.cs. En Windows Coco.exe
+# corre directo; en Ubuntu hace falta mono.
+case "$OSTYPE" in
+  msys*|cygwin*) coco="./Coco.exe" ;;
+  *) if command -v mono > /dev/null; then coco="mono Coco.exe"; else coco=""; fi ;;
+esac
+if [ -n "$coco" ]; then
+  tmp=$(mktemp -d)
+  salida=$($coco Gramatica.atg -o "$tmp" 2>&1)
+  rm -rf "$tmp"
+  if echo "$salida" | grep -q "0 errors detected" && ! echo "$salida" | grep -q "LL1 warning"; then
+    echo "bien   Gramatica.atg es LL(1) para Coco/R"
+  else
+    echo "FALLA  Gramatica.atg (Coco/R):"; echo "$salida"; fallos=$((fallos+1))
+  fi
+else
+  echo "(no se analizó Gramatica.atg con Coco/R: falta mono)"
+fi
 for f in pruebas/validas/*.ra; do
   if dotnet bin/out/AR.dll --ast "$f" > /dev/null; then echo "bien   $f"; else echo "FALLA  $f (tendría que ser válida)"; fallos=$((fallos+1)); fi
 done

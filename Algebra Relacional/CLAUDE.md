@@ -33,6 +33,7 @@ Elegimos un **compilador de álgebra relacional que genera SQL**. Toma el álgeb
 
 ```bash
 mono Coco.exe AR.atg      # regenera Scanner.cs y Parser.cs a partir de la gramática
+python3 extraer_gramatica.py  # regenera Gramatica.atg (después de cada cambio en AR.atg)
 ./probar.sh               # compila y corre todas las pruebas
 dotnet run -- archivo.ra             # compila: imprime el script SQL (o los errores)
 dotnet run -- --esquemas archivo.ra  # hasta el semántico: imprime el esquema de cada sentencia
@@ -49,6 +50,8 @@ Todo el proyecto vive en la raíz de `Algebra Relacional/` (el repositorio git e
 | Archivo | Qué es |
 |---|---|
 | `AR.atg` | La gramática de Coco/R, con sus acciones semánticas. **Es la fuente del scanner y del parser.** |
+| `Gramatica.atg` | La gramática sola (tokens, producciones y los dos `IF(...)`), sin atributos ni acciones. Pedido del profesor, para analizarla aparte. **Generada** por `extraer_gramatica.py` a partir de `AR.atg`: no editarla. Coco/R la acepta sola (`Coco.exe Gramatica.atg -o <otra carpeta>`). |
+| `extraer_gramatica.py` | Genera `Gramatica.atg`; con `--verificar`, falla si está desactualizada (lo usa `probar.sh`). |
 | `Coco.exe` | Coco/R para C#, versionado en el repo para no tener que bajarlo. |
 | `Scanner.frame`, `Parser.frame` | Plantillas de Coco/R originales (misma versión que `Coco.exe`, con fin de línea CRLF). No modificarlas. |
 | `Scanner.cs`, `Parser.cs` | **Generados por Coco/R. Nunca editarlos a mano**: se sobrescriben en cada regeneración. Se versionan igual, para poder compilar sin mono. Las copias `*.old` que deja Coco/R están en `.gitignore`. |
@@ -56,7 +59,7 @@ Todo el proyecto vive en la raíz de `Algebra Relacional/` (el repositorio git e
 | `Semantico.cs` | Análisis semántico: tabla de símbolos, esquemas (`Esquema`, `Atributo`, `Dominio`) y chequeos. |
 | `Generador.cs` | Generación de SQL para SQLite a partir del AST validado. |
 | `Program.cs` | Punto de entrada: lee el archivo, agrega el BOM y ejecuta parser → semántico → generador. Imprime el SQL (con `--esquemas`, los esquemas; con `--ast`, solo el AST). |
-| `probar.sh` | Corre todas las pruebas. |
+| `probar.sh` | Corre todas las pruebas, y verifica que `Gramatica.atg` esté al día y sea LL(1) para Coco/R. |
 | `GUIA.md` | Guía para la exposición: las fases con un ejemplo real, y cada operador escrito con el teclado latino. Los ejemplos de su sección 4 se verifican a mano al cambiar el lenguaje. |
 | `ejemplos/*.ra` | Programas de ejemplo para la exposición (no son pruebas). |
 | `pruebas/validas/*.ra` | Programas sin errores de sintaxis (se corren con `--ast`; pueden usar tablas no declaradas). |
