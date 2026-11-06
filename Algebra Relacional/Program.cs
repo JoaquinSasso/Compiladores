@@ -9,6 +9,9 @@ using System.Text;
 //   --esquemas    hasta el semántico: imprime el esquema de cada sentencia
 class Program {
     static int Main(string[] args) {
+        // La salida siempre en UTF-8 (sin BOM). En Ubuntu ya lo es, pero en Windows
+        // la consola usa otra página de códigos y se pierden σ, π, ⋈ y los acentos.
+        Console.OutputEncoding = new UTF8Encoding(false);
         string modo = args.Length == 2 ? args[0] : "--sql";
         if (args.Length < 1 || args.Length > 2 || (modo != "--sql" && modo != "--ast" && modo != "--esquemas")) {
             Console.WriteLine("Uso: AR [--ast | --esquemas] <archivo>");

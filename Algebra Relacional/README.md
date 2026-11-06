@@ -36,5 +36,22 @@ dotnet run -- --ast pruebas/ast/03_joins.ra       # ver solo el árbol
 ./probar.sh                                       # correr todas las pruebas
 ```
 
+## Cómo compilar y probar (Windows)
+
+Hace falta el SDK de .NET 10, Python 3 y Git for Windows (por Git Bash, para
+`probar.sh`). `Coco.exe` corre directo, sin mono. Desde Git Bash:
+
+```bash
+./Coco.exe AR.atg                                 # generar Scanner.cs y Parser.cs
+dotnet run -- pruebas/validas/01_clase_algebra.ra # ver el SQL (o los errores)
+dotnet run -- pruebas/validas/01_clase_algebra.ra | python pruebas/ejecutar_sql.py  # ejecutarlo
+./probar.sh                                       # correr todas las pruebas
+```
+
+En Windows se usa `python`, no `python3` (ese nombre es un acceso directo a la
+Microsoft Store). `probar.sh` elige solo el que funcione. Al regenerar con Coco/R,
+`git status` puede marcar `Scanner.cs` y `Parser.cs` como modificados solo por los
+fines de línea: `git diff --ignore-cr-at-eol` lo confirma.
+
 Coco/R tiene que terminar con `0 errors detected` y **sin avisos "LL1 warning"**.
 Requiere .NET 10 (`net10.0` en `AR.csproj`), mono para ejecutar `Coco.exe` y Python 3 para las pruebas de SQL.

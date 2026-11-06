@@ -24,7 +24,7 @@ Elegimos un **compilador de álgebra relacional que genera SQL**. Toma el álgeb
 
 ## Entorno
 
-- **Sistema operativo:** Ubuntu 26.04.
+- **Sistema operativo:** Ubuntu 26.04 o Windows 11. En Windows: `./Coco.exe AR.atg` (sin mono), `python` en lugar de `python3`, y `./probar.sh` desde Git Bash. `Program.cs` y `ejecutar_sql.py` fuerzan UTF-8 en la entrada/salida porque Windows usa otra página de códigos.
 - **Python 3** (solo para las pruebas: su módulo `sqlite3` ejecuta el SQL generado).
 - **.NET 10** (`dotnet-sdk-10.0`). En `AR.csproj` tiene que decir `<TargetFramework>net10.0</TargetFramework>`.
 - **Coco/R para C#**, versión "Apr 19, 2011". Se ejecuta con `mono Coco.exe AR.atg` (se baja de https://ssw.jku.at/Research/Projects/Coco/). El aviso "The runtime version supported by this application is unavailable" de mono es inofensivo.

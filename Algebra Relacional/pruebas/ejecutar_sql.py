@@ -14,6 +14,10 @@ def texto(v):
         return str(int(v))          # 7.0 → 7, para que no dependa de cómo guarda SQLite el número
     return str(v)
 
+# Entrada y salida en UTF-8 (en Windows, Python usa otra codificación por defecto)
+sys.stdin.reconfigure(encoding="utf-8")
+sys.stdout.reconfigure(encoding="utf-8")
+
 base = sqlite3.connect(":memory:")
 sentencia = ""
 primera = True
