@@ -1,0 +1,171 @@
+@* La pestaña Dataset: varios datasets con nombre, el editor del elegido,
+   importar archivos (texto en el formato de RelaX o CSV) y la lista de
+   tablas con sus esquemas y sus datos. *@
+@inject Js Js
+
+<p class="explicacion">
+    Las tablas que se definen acá se pueden usar en la calculadora. El formato es el de
+    RelaX: <code>nombre = { columnas  filas }</code>. Se pueden tener varios datasets y elegir con cuál trabajar.
+</p>
+
+<div class="selector-dataset">
+    <label class="etiqueta" for="elegir-dataset">Dataset</label>
+    <div class="acciones">
+        <select id="elegir-dataset" class="campo" value="@Estado.DatasetActual" @onchange="Elegir">
+            @foreach (var d in Estado.Datasets) {
+                <option value="@d.Id">@d.Nombre</option>
+            }
+        </select>
+        <button class="boton" @onclick="Nuevo">Nuevo</button>
+        <button class="boton" @onclick="Renombrar">Renombrar</button>
+        <button class="boton" @onclick="Eliminar">Eliminar</button>
+    </div>
+</div>
+
+<div class="acciones">
+    <label class="boton">
+        Abrir archivo
+        <InputFile OnChange="AbrirArchivo" accept=".txt,.ra,text/plain" class="oculto" />
+    </label>
+    <label class="boton" title="Agrega una tabla al dataset a partir de un archivo CSV (la primera fila son los nombres de las columnas)">
+        Importar CSV
+        <InputFile OnChange="ImportarCsv" accept=".csv,text/csv" class="oculto" />
+    </label>
+    <button class="boton" @onclick="CargarEjemplo">Cargar ejemplo</button>
+    <button class="boton" @onclick="Vaciar">Vaciar</button>
+    <button class="boton" @onclick="Descargar">Descargar</button>
+</div>
+
+<label class="etiqueta" for="dataset">@Estado.Dataset.Nombre</label>
+<EditorCodigo @ref="editor" Id="dataset" Clase="dataset" Filas="16" Valor="@Estado.Dataset.Texto" ValorChanged="TextoCambio"
+              Placeholder="alumno = {&#10;cuil, nyAp&#10;10, 'Juan'&#10;}" Marcas="Marcas" />
+
+@if (Analisis == null) {
+} else if (Analisis.Errores.Count > 0) {
+    <ListaErrores Titulo="El dataset tiene errores" Errores="Analisis.Errores" MostrarOrigen="false"
+                  AlElegir="e => IrA(e.Linea, e.Col)" />
+} else if (Analisis.Tablas.Count == 0) {
+    <p class="aviso">Todavía no hay tablas definidas.</p>
+} else {
+    <h2 class="subtitulo">Tablas</h2>
+    <ul class="tablas">
+        @foreach (var t in Analisis.Tablas) {
+            <li>
+                <details>
+                    <summary>
+                        <strong>@t.Nombre</strong>
+                        <span class="cuenta">@(t.EsVariable ? "variable" : t.Filas.Count + (t.Filas.Count == 1 ? " fila" : " filas"))</span>
+                        <div class="columnas">
+                            @foreach (var c in t.Atributos) { <span class="columna">@c.Nombre: @Semantico.NombreDominio(c.Tipo)</span> }
+                        </div>
+                    </summary>
+                    @if (t.EsVariable) {
+                        <p class="pista">Es una variable: su resultado se ve al usarla en la calculadora.</p>
+                    } else {
+                        <TablaResultado Columnas="t.Atributos.Select(a => a.Nombre).ToList()" Filas="t.Filas"
+                                        Atributos="t.Atributos" ConExportar="false" />
+                    }
+                </details>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter] public Estado Estado { get; set; }
+    [Parameter] public AnalisisDataset Analisis { get; set; }
+    // Avisa que cambió el dataset; true = recalcular ya (no esperar a que se deje de escribir).
+    [Parameter] public EventCallback<bool> AlCambiar { get; set; }
+    [Parameter] public EventCallback<string> AlAvisar { get; set; }
+
+    EditorCodigo editor;
+
+    IReadOnlyList<(int, int)> Marcas =>
+        Analisis?.Errores.Where(e => e.Linea > 0).Select(e => (e.Linea, e.Col)).ToList() ?? new List<(int, int)>();
+
+    public Task IrA(int linea, int col) => editor.IrA(linea, col);
+
+    async Task TextoCambio(string texto) {
+        Estado.Dataset.Texto = texto;
+        await AlCambiar.InvokeAsync(false);
+    }
+
+    async Task Elegir(ChangeEventArgs e) {
+        Estado.DatasetActual = e.Value?.ToString();
+        await AlCambiar.InvokeAsync(true);
+    }
+
+    async Task Nuevo() {
+        string nombre = await Js.Preguntar("Nombre del dataset nuevo:", "Mi dataset");
+        if (string.IsNullOrWhiteSpace(nombre)) return;
+        Estado.NuevoDataset(nombre.Trim(), "");
+        await AlCambiar.InvokeAsync(true);
+    }
+
+    async Task Renombrar() {
+        string nombre = await Js.Preguntar("Nombre del dataset:", Estado.Dataset.Nombre);
+        if (string.IsNullOrWhiteSpace(nombre)) return;
+        Estado.Dataset.Nombre = nombre.Trim();
+        await AlCambiar.InvokeAsync(true);
+    }
+
+    async Task Eliminar() {
+        if (!await Js.Confirmar($"¿Eliminar el dataset \"{Estado.Dataset.Nombre}\"? No se puede deshacer.")) return;
+        Estado.EliminarDataset(Estado.DatasetActual);
+        await AlCambiar.InvokeAsync(true);
+    }
+
+    // Un archivo de texto se abre como un dataset nuevo (no pisa el actual).
+    async Task AbrirArchivo(InputFileChangeEventArgs e) {
+        string texto = await LeerArchivo(e.File);
+        if (texto == null) return;
+        Estado.NuevoDataset(Path.GetFileNameWithoutExtension(e.File.Name), texto);
+        await AlCambiar.InvokeAsync(true);
+    }
+
+    // Un CSV se agrega como una tabla más al final del dataset actual.
+    async Task ImportarCsv(InputFileChangeEventArgs e) {
+        string texto = await LeerArchivo(e.File);
+        if (texto == null) return;
+        string tabla;
+        try { tabla = Csv.ATabla(Path.GetFileNameWithoutExtension(e.File.Name), texto); }
+        catch (FormatException ex) { await AlAvisar.InvokeAsync(ex.Message); return; }
+        string actual = Estado.Dataset.Texto.TrimEnd();
+        Estado.Dataset.Texto = (actual.Length > 0 ? actual + "\n\n" : "") + tabla;
+        await AlCambiar.InvokeAsync(true);
+        await AlAvisar.InvokeAsync("Se agregó la tabla " + tabla[..tabla.IndexOf(' ')] + " al dataset.");
+    }
+
+    async Task<string> LeerArchivo(IBrowserFile archivo) {
+        try {
+            using var lector = new StreamReader(archivo.OpenReadStream(maxAllowedSize: 2_000_000));
+            return await lector.ReadToEndAsync();
+        } catch (IOException) {
+            await AlAvisar.InvokeAsync("El archivo es demasiado grande (el máximo es 2 MB).");
+            return null;
+        }
+    }
+
+    async Task CargarEjemplo() {
+        var d = Estado.Datasets.FirstOrDefault(x => x.Id == Estado.IdEjemplo);
+        if (d == null) {
+            d = new DatasetGuardado { Id = Estado.IdEjemplo, Nombre = "Clase de álgebra", Texto = Ejemplos.Dataset };
+            Estado.Datasets.Insert(0, d);
+        } else if (d.Texto != Ejemplos.Dataset) {
+            if (!await Js.Confirmar("El dataset de ejemplo tiene cambios. ¿Volver a la versión original?")) { Estado.DatasetActual = d.Id; await AlCambiar.InvokeAsync(true); return; }
+            d.Texto = Ejemplos.Dataset;
+        }
+        Estado.DatasetActual = d.Id;
+        await AlCambiar.InvokeAsync(true);
+    }
+
+    async Task Vaciar() {
+        if (!string.IsNullOrWhiteSpace(Estado.Dataset.Texto)
+            && !await Js.Confirmar($"¿Borrar todo el contenido de \"{Estado.Dataset.Nombre}\"?")) return;
+        Estado.Dataset.Texto = "";
+        await AlCambiar.InvokeAsync(true);
+    }
+
+    async Task Descargar() =>
+        await Js.Descargar(Csv.Identificador(Estado.Dataset.Nombre, "dataset") + ".txt", Estado.Dataset.Texto, "text/plain;charset=utf-8");
+}

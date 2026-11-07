@@ -19,7 +19,10 @@
 
 <body>
     <div id="app">
-        <div class="cargando">Cargando la calculadora…</div>
+        <div class="cargando">
+            <span>Cargando la calculadora… <span class="progreso-texto"></span></span>
+            <div class="progreso" aria-hidden="true"></div>
+        </div>
     </div>
 
     <div id="blazor-error-ui">
@@ -30,7 +33,34 @@
     <!-- SQLite compilado a WebAssembly (sql.js): ejecuta el SQL que genera el compilador -->
     <script src="lib/sqljs/sql-wasm.js"></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
-    <script>navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' });</script>
+    <!-- Aviso cuando hay una versión nueva de la app (la descargó el service worker) -->
+    <div id="actualizacion" role="status">
+        Hay una versión nueva de la app.
+        <button type="button">Actualizar</button>
+    </div>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' }).then(registro => {
+                const aviso = document.getElementById('actualizacion');
+                const avisar = nuevo => {
+                    aviso.classList.add('visible');
+                    aviso.querySelector('button').onclick = () => nuevo.postMessage('activar');
+                };
+                if (registro.waiting && navigator.serviceWorker.controller) avisar(registro.waiting);
+                registro.addEventListener('updatefound', () => {
+                    const nuevo = registro.installing;
+                    nuevo.addEventListener('statechange', () => {
+                        if (nuevo.state === 'installed' && navigator.serviceWorker.controller) avisar(nuevo);
+                    });
+                });
+            });
+            // Cuando el service worker nuevo toma el control, se recarga la página.
+            let recargando = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!recargando) { recargando = true; location.reload(); }
+            });
+        }
+    </script>
 </body>
 
 </html>

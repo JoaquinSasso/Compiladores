@@ -1,0 +1,104 @@
+@* Una relación como tabla: encabezados con el tipo y el calificador de cada
+   atributo, orden al tocar un encabezado, de a 100 filas, y exportar. *@
+@inject Js Js
+
+@if (ConExportar) {
+    <div class="tabla-herramientas">
+        <button class="boton chico" @onclick="DescargarCsv">Descargar CSV</button>
+        <button class="boton chico" @onclick="CopiarMarkdown">@(copiado ? "¡Copiada!" : "Copiar tabla")</button>
+    </div>
+}
+<div class="tabla-scroll">
+    <table>
+        <thead>
+            <tr>
+                @for (int i = 0; i < Columnas.Count; i++) {
+                    int c = i;
+                    var attr = Atributos != null && c < Atributos.Count ? Atributos[c] : null;
+                    <th aria-sort="@(orden == c ? (ascendente ? "ascending" : "descending") : "none")">
+                        <button class="orden" @onclick="() => Ordenar(c)" title="Ordenar por @Columnas[c]">
+                            <span class="nombre-columna">@Columnas[c]</span>
+                            @if (orden == c) { <span class="flecha" aria-hidden="true">@(ascendente ? "▲" : "▼")</span> }
+                            @if (attr != null) {
+                                <span class="tipo-columna">@Detalle(attr)</span>
+                            }
+                        </button>
+                    </th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var fila in Visibles()) {
+                <tr class="@ClaseFila?.Invoke(fila)">
+                    @foreach (var v in fila) {
+                        if (v == null) { <td class="nulo">NULL</td> } else { <td>@v</td> }
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (Filas.Count == 0) { <p class="vacio">La relación está vacía.</p> }
+</div>
+@if (Filas.Count > mostradas) {
+    <div class="mas-filas">
+        <span class="cuenta">Se muestran @mostradas de @Filas.Count filas.</span>
+        <button class="boton chico" @onclick="() => mostradas += Pagina">Mostrar @Math.Min(Pagina, Filas.Count - mostradas) más</button>
+    </div>
+}
+
+@code {
+    [Parameter] public List<string> Columnas { get; set; } = new();
+    [Parameter] public List<List<string>> Filas { get; set; } = new();
+    [Parameter] public List<Atributo> Atributos { get; set; }
+    [Parameter] public bool ConExportar { get; set; } = true;
+    [Parameter] public string NombreArchivo { get; set; } = "resultado";
+    [Parameter] public Func<List<string>, string> ClaseFila { get; set; }
+
+    const int Pagina = 100;
+    int mostradas = Pagina;
+    int orden = -1;                 // columna por la que se ordena (-1: el orden del SQL)
+    bool ascendente = true;
+    bool copiado;
+    List<List<string>> filasAnteriores;
+
+    protected override void OnParametersSet() {
+        if (!ReferenceEquals(Filas, filasAnteriores)) {   // otra relación: se vuelve a empezar
+            filasAnteriores = Filas;
+            mostradas = Pagina; orden = -1; ascendente = true; copiado = false;
+        }
+    }
+
+    static string Detalle(Atributo a) =>
+        (a.Calificador != null ? a.Calificador + " · " : "") + Semantico.NombreDominio(a.Tipo);
+
+    void Ordenar(int c) {
+        if (orden != c) { orden = c; ascendente = true; }
+        else if (ascendente) ascendente = false;
+        else orden = -1;                               // tercer toque: sin ordenar
+    }
+
+    List<List<string>> Ordenadas() {
+        if (orden < 0) return Filas;
+        var l = Filas.ToList();
+        l.Sort((a, b) => Comparar(a[orden], b[orden]) * (ascendente ? 1 : -1));
+        return l;
+    }
+
+    IEnumerable<List<string>> Visibles() => Ordenadas().Take(mostradas);
+
+    // Los números se comparan como números; NULL va primero.
+    static int Comparar(string a, string b) {
+        if (a == null || b == null) return a == null ? (b == null ? 0 : -1) : 1;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        if (double.TryParse(a, System.Globalization.NumberStyles.Float, inv, out var x) &&
+            double.TryParse(b, System.Globalization.NumberStyles.Float, inv, out var y)) return x.CompareTo(y);
+        return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
+    }
+
+    async Task DescargarCsv() =>
+        await Js.Descargar(NombreArchivo + ".csv", Csv.Exportar(Columnas, Ordenadas()), "text/csv;charset=utf-8");
+
+    async Task CopiarMarkdown() {
+        copiado = await Js.Copiar(Csv.Markdown(Columnas, Ordenadas()));
+    }
+}

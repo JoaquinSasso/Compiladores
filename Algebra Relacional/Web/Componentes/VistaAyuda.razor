@@ -1,0 +1,47 @@
+@* La pestaña Ayuda: cada operador con su símbolo, cómo escribirlo con el
+   teclado y un ejemplo que se puede probar (Servicios/Ayuda.cs). *@
+
+<p class="explicacion">
+    Cada operador se puede escribir con su símbolo (con los botones de la calculadora) o con una palabra.
+    Los ejemplos usan el dataset de la clase de álgebra: <strong>Probar</strong> lo abre en una consulta nueva.
+</p>
+
+@foreach (var s in Ayuda.Secciones) {
+    <h2 class="subtitulo">@s.Titulo</h2>
+    <ul class="ayuda">
+        @foreach (var e in s.Entradas) {
+            var entrada = e;
+            <li>
+                <div class="ayuda-cabeza">
+                    <span class="ayuda-simbolo">@entrada.Simbolo</span>
+                    <span><strong>@entrada.Nombre</strong> <span class="cuenta">también: @entrada.Palabras</span></span>
+                </div>
+                <p>@entrada.Descripcion</p>
+                <div class="ayuda-ejemplo">
+                    <code>@entrada.Ejemplo</code>
+                    <button class="boton chico" @onclick="() => AlProbar.InvokeAsync(entrada.Ejemplo)">Probar</button>
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+<h2 class="subtitulo">Más cosas para saber</h2>
+<ul class="ayuda texto">
+    <li><strong>Precedencia</strong> (de menor a mayor): <code>∪ −</code>, después <code>∩</code>, después
+        <code>× ⋈ ⟕ ⟖ ⟗ ÷</code>, y los unarios <code>π σ ρ γ</code> ligan más fuerte que todos.
+        Ante la duda, usá paréntesis: <code>π nyAp (alumno ⋈ examen)</code>.</li>
+    <li>Los <strong>paréntesis</strong> alrededor de la relación de un unario son opcionales:
+        <code>π a σ b = 1 R</code> es lo mismo que <code>π a (σ b = 1 (R))</code>.</li>
+    <li>Las <strong>cadenas</strong> van entre comillas simples: <code>'AyP'</code>. Los nombres no distinguen
+        mayúsculas, y <code>x</code> no puede ser un nombre (es el producto cartesiano).</li>
+    <li><strong>Comentarios:</strong> <code>-- hasta el fin de la línea</code> y <code>/* varias líneas */</code>.</li>
+    <li>Se pueden escribir <strong>varias consultas</strong>: cada una muestra su resultado. El <code>;</code> al final es opcional.</li>
+    <li><strong>Atajos:</strong> Ctrl+Enter ejecuta; Tab completa el nombre sugerido; tocando un error se va a esa línea.</li>
+    <li><strong>Paso a paso:</strong> debajo de cada resultado se puede ver el árbol de la consulta y el resultado de cada operador.</li>
+    <li>Todo funciona <strong>sin conexión</strong> y queda guardado en este navegador. La app se puede instalar en el teléfono desde el menú del navegador.</li>
+</ul>
+
+@code {
+    [Parameter] public EventCallback<string> AlProbar { get; set; }
+}

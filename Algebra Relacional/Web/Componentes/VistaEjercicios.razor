@@ -1,0 +1,131 @@
+@* La pestaña Ejercicios: las guías (la de ejemplo y las que se abran o
+   lleguen por un enlace) con sus ejercicios. Al elegir uno se resuelve en la
+   calculadora, que lo corrige comparando con la solución. *@
+@inject Js Js
+
+<p class="explicacion">
+    Elegí un ejercicio para resolverlo en la calculadora. Al tocar <strong>Corregir</strong>, el resultado de tu
+    consulta se compara con el de la solución: no importa el orden de las filas ni el nombre de las columnas.
+</p>
+
+<div class="acciones">
+    <label class="boton">
+        Abrir una guía
+        <InputFile OnChange="AbrirGuia" accept=".txt,text/plain" class="oculto" />
+    </label>
+</div>
+
+@foreach (var g in Estado.Guias) {
+    var guardada = g;
+    var guia = Leer(guardada);
+    int resueltos = guia.Ejercicios.Count(e => Estado.Resueltos.Contains(Estado.IdEjercicio(guardada.Id, e.Numero)));
+    <article class="guia">
+        <header>
+            <h2>@guia.Titulo</h2>
+            <span class="cuenta">@resueltos de @guia.Ejercicios.Count resueltos</span>
+        </header>
+        @if (guia.Errores.Count > 0) {
+            <div class="aviso error">
+                <h2>La guía tiene problemas</h2>
+                <ul>@foreach (var e in guia.Errores) { <li>@e</li> }</ul>
+            </div>
+        }
+        <ol class="ejercicios">
+            @foreach (var ej in guia.Ejercicios) {
+                var ejercicio = ej;
+                bool hecho = Estado.Resueltos.Contains(Estado.IdEjercicio(guardada.Id, ejercicio.Numero));
+                <li>
+                    <button class="ejercicio @(hecho ? "hecho" : "")" @onclick="() => AlEmpezar.InvokeAsync((guardada, guia, ejercicio))">
+                        <span class="marca-hecho" aria-label="@(hecho ? "resuelto" : "sin resolver")">@(hecho ? "✓" : ejercicio.Numero.ToString())</span>
+                        <span>
+                            <strong>@ejercicio.Titulo</strong>
+                            <span class="enunciado-corto">@ejercicio.Enunciado</span>
+                        </span>
+                    </button>
+                </li>
+            }
+        </ol>
+        <div class="acciones">
+            <button class="boton chico" @onclick="() => AlCompartir.InvokeAsync(guardada)">Compartir la guía</button>
+            <button class="boton chico" @onclick="() => Descargar(guardada, guia)">Descargar</button>
+            @if (resueltos > 0) {
+                <button class="boton chico" @onclick="() => Reiniciar(guardada, guia)">Reiniciar</button>
+            }
+            @if (!guardada.Incluida) {
+                <button class="boton chico" @onclick="() => Eliminar(guardada, guia)">Eliminar</button>
+            }
+        </div>
+    </article>
+}
+
+<details class="detalle">
+    <summary>Cómo escribir una guía</summary>
+    <div class="detalle-cuerpo">
+        <p>
+            Una guía es un archivo de texto. Las líneas que empiezan con <code>##</code> separan las partes: el
+            título, el dataset y cada ejercicio con su enunciado y su solución. Se puede abrir con el botón
+            <strong>Abrir una guía</strong> o compartir con un enlace.
+        </p>
+        <pre>@Formato</pre>
+    </div>
+</details>
+
+@code {
+    [Parameter] public Estado Estado { get; set; }
+    [Parameter] public EventCallback<(GuiaGuardada, Guia, Ejercicio)> AlEmpezar { get; set; }
+    [Parameter] public EventCallback AlCambiar { get; set; }
+    [Parameter] public EventCallback<GuiaGuardada> AlCompartir { get; set; }
+    [Parameter] public EventCallback<string> AlAvisar { get; set; }
+
+    const string Formato =
+@"## guía: Práctica 1
+## dataset
+alumno = {
+cuil, nyAp
+10, 'Juan'
+20, 'Ana'
+}
+## ejercicio: Nombres
+Mostrar el nombre de todos los alumnos.
+## solución
+π nyAp (alumno)
+## ejercicio: ...";
+
+    // Las guías se leen una vez por texto.
+    readonly Dictionary<string, Guia> leidas = new();
+    Guia Leer(GuiaGuardada g) {
+        if (!leidas.TryGetValue(g.Texto, out var guia)) leidas[g.Texto] = guia = Guias.Leer(g.Texto);
+        return guia;
+    }
+
+    async Task AbrirGuia(InputFileChangeEventArgs e) {
+        string texto;
+        try {
+            using var lector = new StreamReader(e.File.OpenReadStream(maxAllowedSize: 2_000_000));
+            texto = await lector.ReadToEndAsync();
+        } catch (IOException) { await AlAvisar.InvokeAsync("El archivo es demasiado grande."); return; }
+        var guia = Guias.Leer(texto);
+        if (guia.Ejercicios.Count == 0) { await AlAvisar.InvokeAsync("El archivo no tiene ejercicios: ¿es una guía?"); return; }
+        Estado.AgregarGuia(texto);
+        await AlCambiar.InvokeAsync();
+    }
+
+    async Task Descargar(GuiaGuardada g, Guia guia) =>
+        await Js.Descargar(Csv.Identificador(guia.Titulo, "guia") + ".txt", g.Texto, "text/plain;charset=utf-8");
+
+    async Task Reiniciar(GuiaGuardada g, Guia guia) {
+        if (!await Js.Confirmar($"¿Marcar todos los ejercicios de \"{guia.Titulo}\" como no resueltos y borrar tus respuestas?")) return;
+        foreach (var e in guia.Ejercicios) {
+            string id = Estado.IdEjercicio(g.Id, e.Numero);
+            Estado.Resueltos.Remove(id);
+            Estado.Respuestas.Remove(id);
+        }
+        await AlCambiar.InvokeAsync();
+    }
+
+    async Task Eliminar(GuiaGuardada g, Guia guia) {
+        if (!await Js.Confirmar($"¿Eliminar la guía \"{guia.Titulo}\" y su dataset?")) return;
+        Estado.EliminarGuia(g.Id);
+        await AlCambiar.InvokeAsync();
+    }
+}

@@ -1,0 +1,24 @@
+@* Los errores de compilación. Cada ubicación es un botón que lleva el cursor
+   a ese lugar (en el editor de la consulta o en el del dataset). *@
+<div class="aviso error" role="alert">
+    <h2>@Titulo</h2>
+    <ul>
+        @foreach (var e in Errores) {
+            <li>
+                @if (e.Linea > 0) {
+                    <button class="enlace donde" @onclick="() => AlElegir.InvokeAsync(e)">
+                        @(e.Origen == Origen.Dataset && MostrarOrigen ? "dataset, " : "")línea @e.Linea, col @e.Col
+                    </button>
+                }
+                <span>@e.Mensaje</span>
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    [Parameter] public string Titulo { get; set; }
+    [Parameter] public IEnumerable<ErrorVista> Errores { get; set; } = Array.Empty<ErrorVista>();
+    [Parameter] public EventCallback<ErrorVista> AlElegir { get; set; }
+    [Parameter] public bool MostrarOrigen { get; set; } = true;
+}

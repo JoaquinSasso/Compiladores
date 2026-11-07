@@ -14,6 +14,15 @@
     --error-fondo: #fdecea;
     --nulo: #8a929c;
     --sombra: 0 1px 2px rgba(16, 24, 40, .06);
+    --seleccion: rgba(36, 87, 197, .22);
+    --bien: #067647;
+    --bien-fondo: #e7f6ec;
+    --c-unario: #6941c6;
+    --c-binario: #2457c5;
+    --c-logico: #b54708;
+    --c-agregado: #0e7090;
+    --c-numero: #087443;
+    --c-cadena: #a4262c;
     color-scheme: light;
 }
 
@@ -33,6 +42,15 @@
         --error-fondo: #3a1d1b;
         --nulo: #6f7782;
         --sombra: none;
+        --seleccion: rgba(122, 162, 255, .3);
+        --bien: #75e0a7;
+        --bien-fondo: #133524;
+        --c-unario: #c3a6ff;
+        --c-binario: #8fb2ff;
+        --c-logico: #fdb022;
+        --c-agregado: #67e3f9;
+        --c-numero: #75e0a7;
+        --c-cadena: #ff9c95;
         color-scheme: dark;
     }
 }
@@ -51,7 +69,7 @@ body {
 }
 
 /* Fuentes con los símbolos del álgebra (⋈ ⟕ ⟖ ⟗ ÷ …) */
-.editor, .tecla, code, pre, .logo {
+.editor, .editor-capa, .tecla, code, pre, .logo, .arbol text, .sugerencia, .ayuda-simbolo, .paso h3 {
     font-family: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Noto Sans Mono",
                  "Segoe UI Symbol", "Cambria Math", "Noto Sans Math", "STIX Two Math", monospace;
 }
@@ -122,6 +140,7 @@ h1 { font-size: 18px; font-weight: 650; }
 /* En el teléfono no va el título: queda más lugar para el teclado y el editor. */
 @media (max-width: 639px) {
     .marca { display: none; }
+    .pestana { padding: 0 4px; font-size: 15px; }
     .barra { padding-top: 0; }
     .pestanas { margin-top: 0; }
 }
@@ -188,26 +207,113 @@ main { max-width: 960px; margin: 0 auto; padding: 16px; }
 .tecla:active { transform: scale(.96); }
 
 /* ---------------------------------------------------------------- Editor --- */
-.editor {
-    width: 100%;
-    min-height: 120px;
-    padding: 12px;
-    border: 1px solid var(--borde);
+/* El editor es un textarea con el texto transparente, encima de una capa
+   (.editor-capa) que muestra el mismo texto pintado. Las dos tienen que tener
+   exactamente la misma letra, relleno, borde y cortes de línea. */
+.editor-marco {
+    position: relative;
     border-radius: 12px;
     background: var(--superficie);
-    color: var(--texto);
-    font-size: 16px;            /* 16px: iOS no hace zoom al escribir */
-    line-height: 1.5;
-    resize: vertical;
     box-shadow: var(--sombra);
 }
 
-.editor.dataset { min-height: 320px; font-size: 15px; }
+.editor, .editor-capa {
+    width: 100%;
+    min-height: 120px;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    font-size: 16px;            /* 16px: iOS no hace zoom al escribir */
+    line-height: 1.5;
+    letter-spacing: normal;
+    tab-size: 4;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    word-break: normal;
+    scrollbar-gutter: stable;   /* las dos dejan el mismo lugar para la barra */
+}
 
-.editor:focus, .tecla:focus-visible, .boton:focus-visible, .pestana:focus-visible {
+.editor {
+    position: relative;
+    z-index: 1;
+    display: block;
+    background: transparent;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    caret-color: var(--texto);
+    resize: vertical;
+    overflow: auto;
+}
+
+.editor::placeholder { color: var(--tenue); -webkit-text-fill-color: var(--tenue); }
+.editor::selection { background: var(--seleccion); }
+/* Con textos muy largos no se pinta: se ve el texto del textarea. */
+.editor.sin-resaltado { color: var(--texto); -webkit-text-fill-color: var(--texto); }
+
+.editor-capa {
+    position: absolute;
+    inset: 0;
+    min-height: 0;
+    border-color: transparent;
+    color: var(--texto);
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.editor.dataset { min-height: 320px; }
+.editor.dataset, .editor-capa.dataset { font-size: 15px; }
+
+.editor:focus, .tecla:focus-visible, .boton:focus-visible, .pestana:focus-visible,
+.chip button:focus-visible, .campo:focus-visible, .nodo:focus-visible {
     outline: 2px solid var(--acento);
     outline-offset: 1px;
 }
+
+/* Colores del resaltado */
+.editor-capa .una { color: var(--c-unario); font-weight: 600; }
+.editor-capa .bin { color: var(--c-binario); font-weight: 600; }
+.editor-capa .log, .editor-capa .cmp, .editor-capa .fle { color: var(--c-logico); }
+.editor-capa .agg { color: var(--c-agregado); }
+.editor-capa .num, .editor-capa .cte { color: var(--c-numero); }
+.editor-capa .cad { color: var(--c-cadena); }
+.editor-capa .com, .editor-capa .grp { color: var(--tenue); font-style: italic; }
+.editor-capa .par { color: var(--tenue); }
+.editor-capa .pareja { background: var(--acento-suave); color: var(--acento); font-weight: 700; border-radius: 3px; }
+.editor-capa .suelto { color: var(--error); font-weight: 700; }
+.editor-capa .err {
+    text-decoration: underline wavy var(--error);
+    text-decoration-skip-ink: none;
+    text-underline-offset: 3px;
+    background: var(--error-fondo);
+    border-radius: 3px;
+}
+
+/* Sugerencias para completar nombres */
+.sugerencias {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: -4px;
+}
+
+.sugerencia {
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--borde);
+    border-radius: 18px;
+    background: var(--superficie);
+    color: var(--texto);
+    font-size: 15px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.sugerencia:first-child { border-color: var(--acento); color: var(--acento); }
+
+.opcion { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--tenue); }
+.opcion input { flex: 0 0 auto; width: 18px; height: 18px; margin: 0; accent-color: var(--acento); }
 
 /* ---------------------------------------------------------------- Botones --- */
 .acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -228,6 +334,8 @@ main { max-width: 960px; margin: 0 auto; padding: 16px; }
 
 .boton.primario { background: var(--acento); border-color: var(--acento); color: var(--acento-texto); padding: 0 24px; }
 .boton:disabled { opacity: .6; cursor: progress; }
+.boton.chico { min-height: 36px; padding: 0 12px; font-size: 14px; }
+.separador { flex: 1; }
 
 .pista { color: var(--tenue); font-size: 14px; }
 
@@ -338,9 +446,31 @@ td.nulo { color: var(--nulo); font-style: italic; }
 .cargando {
     display: grid;
     place-items: center;
-    min-height: 100vh;
+    align-content: center;
+    gap: 12px;
+    min-height: 60vh;
     color: var(--tenue);
 }
+
+/* Mientras se descarga la app, Blazor va actualizando --blazor-load-percentage */
+.progreso {
+    width: min(240px, 70vw);
+    height: 6px;
+    border-radius: 3px;
+    background: var(--borde);
+    overflow: hidden;
+}
+
+.progreso::after {
+    content: "";
+    display: block;
+    height: 100%;
+    width: var(--blazor-load-percentage, 0%);
+    background: var(--acento);
+    transition: width .2s;
+}
+
+.progreso-texto::after { content: var(--blazor-load-percentage-text, ""); }
 
 #blazor-error-ui {
     display: none;
@@ -356,3 +486,297 @@ td.nulo { color: var(--nulo); font-style: italic; }
 
 #blazor-error-ui .reload { color: inherit; font-weight: 600; margin-left: 8px; }
 #blazor-error-ui .dismiss { float: right; cursor: pointer; }
+
+/* ------------------------------------------------- Pestañas de consulta --- */
+.pestanas-consulta { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    border: 1px solid var(--borde);
+    border-radius: 18px;
+    background: var(--superficie);
+    overflow: hidden;
+}
+
+.chip.activa { border-color: var(--acento); background: var(--acento-suave); }
+
+.chip button {
+    align-self: stretch;
+    border: 0;
+    background: none;
+    color: var(--texto);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.chip-nombre { padding: 0 4px 0 14px; max-width: 14em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip.activa .chip-nombre { color: var(--acento); font-weight: 600; }
+.chip .chip-cerrar { padding: 0 12px 0 6px; color: var(--tenue); font-size: 18px; }
+.chip.nueva { min-width: 36px; justify-content: center; padding: 0; color: var(--acento); font: inherit; font-size: 20px; cursor: pointer; }
+
+.dataset-actual { margin: 0; font-size: 14px; color: var(--tenue); }
+.dataset-actual .enlace { color: var(--acento); }
+
+/* ------------------------------------------- Herramientas de las tablas --- */
+.tabla-herramientas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 14px 10px;
+}
+
+.detalle > .tabla-herramientas { padding: 10px 14px 0; border-top: 1px solid var(--borde); }
+.detalle > .tabla-herramientas + pre { border-top: 0; }
+
+th { padding: 0; }
+
+th .orden {
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: start;
+    column-gap: 4px;
+    width: 100%;
+    padding: 8px 14px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.nombre-columna { color: var(--texto); }
+.flecha { color: var(--acento); font-size: 11px; }
+.tipo-columna { grid-column: 1 / -1; font-weight: 400; font-size: 12px; color: var(--tenue); }
+
+.mas-filas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--borde);
+}
+
+/* ------------------------------------------------------- Paso a paso --- */
+.detalle.interno { border: 0; border-top: 1px solid var(--borde); border-radius: 0; }
+.detalle.interno summary { color: var(--acento); }
+.detalle-cuerpo { padding: 0 14px 12px; }
+.detalle-cuerpo p { margin-top: 0; }
+.detalle-cuerpo pre { border: 1px solid var(--borde); border-radius: 8px; }
+
+.arbol-pista { margin: 0; padding: 0 14px 8px; }
+.arbol-scroll { overflow-x: auto; padding: 0 6px 8px; }
+.arbol { display: block; margin: 0 auto; }
+
+.arista { stroke: var(--borde); stroke-width: 2; }
+.arista.variable { stroke-dasharray: 5 4; }
+
+.nodo { cursor: pointer; outline: none; }
+.nodo rect { fill: var(--superficie); stroke: var(--borde); stroke-width: 1.5; }
+.nodo.hoja rect { fill: var(--tecla); }
+.nodo.variable rect { stroke-dasharray: 5 3; }
+.nodo:hover rect { stroke: var(--acento); }
+.nodo.elegido rect { fill: var(--acento-suave); stroke: var(--acento); stroke-width: 2.5; }
+.nodo:focus-visible rect { stroke: var(--acento); stroke-width: 3; }
+.etiqueta-nodo { fill: var(--texto); font-size: 14px; text-anchor: middle; }
+.arbol text.filas-nodo { fill: var(--tenue); font-size: 12px; text-anchor: middle; font-family: system-ui, sans-serif; }
+
+.paso { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--borde); padding-top: 12px; }
+.paso h3, .paso > p, .paso > .columnas { margin: 0; padding: 0 14px; }
+.paso h3 { font-size: 15px; }
+.paso .tabla-scroll { border-bottom: 1px solid var(--borde); }
+
+/* -------------------------------------------------------- Ejercicios --- */
+.ejercicio-activo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    background: var(--superficie);
+    border: 1px solid var(--acento);
+    border-radius: 12px;
+    box-shadow: var(--sombra);
+}
+
+.ejercicio-cabeza { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ejercicio-activo h2 { font-size: 17px; }
+.enunciado { margin: 0; white-space: pre-line; }
+
+.solucion {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--tecla);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.correccion { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px; }
+.correccion.bien { background: var(--bien-fondo); color: var(--bien); }
+.correccion.mal { background: var(--error-fondo); color: var(--error); }
+.correccion h3 { margin: 4px 0 0; font-size: 14px; }
+.correccion .tabla-scroll { background: var(--superficie); color: var(--texto); border: 1px solid var(--borde); border-radius: 8px; }
+
+.guia {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    box-shadow: var(--sombra);
+}
+
+.guia > header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.guia h2 { font-size: 16px; }
+
+.ejercicios { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+
+.ejercicio {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    background: var(--fondo);
+    color: var(--texto);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.ejercicio:hover { border-color: var(--acento); }
+.ejercicio strong { display: block; }
+
+.marca-hecho {
+    flex: 0 0 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    background: var(--tecla);
+    color: var(--tenue);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.ejercicio.hecho .marca-hecho { background: var(--bien-fondo); color: var(--bien); }
+
+.enunciado-corto {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: var(--tenue);
+    font-size: 14px;
+}
+
+/* ----------------------------------------------------------- Dataset --- */
+.selector-dataset { display: flex; flex-direction: column; gap: 10px; }
+
+.campo {
+    flex: 1 1 200px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    background: var(--superficie);
+    color: var(--texto);
+    font: inherit;
+}
+
+.tablas details > summary { cursor: pointer; list-style: none; }
+.tablas details > summary::-webkit-details-marker { display: none; }
+.tablas details > summary::after { content: "Ver datos ▾"; display: block; margin-top: 6px; font-size: 13px; color: var(--acento); }
+.tablas details[open] > summary::after { content: "Ocultar datos ▴"; }
+.tablas details .tabla-scroll { margin: 10px -14px -10px; }
+
+/* ------------------------------------------------------------- Ayuda --- */
+.ayuda { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+.ayuda > li {
+    padding: 12px 14px;
+    background: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+}
+
+.ayuda p { margin: 6px 0; color: var(--tenue); }
+.ayuda-cabeza { display: flex; align-items: center; gap: 12px; }
+
+.ayuda-simbolo {
+    min-width: 40px;
+    height: 40px;
+    padding: 0 6px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: var(--acento-suave);
+    color: var(--acento);
+    font-size: 18px;
+    white-space: nowrap;
+}
+
+.ayuda-ejemplo { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ayuda-ejemplo code { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* --------------------------------------------------------- Historial --- */
+.historial { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--borde); }
+.historial li + li { border-top: 1px solid var(--borde); }
+
+.entrada-historial {
+    display: block;
+    width: 100%;
+    padding: 10px 14px;
+    border: 0;
+    background: none;
+    color: var(--texto);
+    text-align: left;
+    cursor: pointer;
+}
+
+.entrada-historial:hover { background: var(--fondo); }
+.entrada-historial code { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
+.historial + .tabla-herramientas { padding-top: 10px; border-top: 1px solid var(--borde); }
+
+/* -------------------------------------------------- Avisos flotantes --- */
+.aviso-flotante, #actualizacion {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    z-index: 50;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    padding: 10px 16px;
+    border-radius: 10px;
+    background: var(--texto);
+    color: var(--fondo);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .25);
+    font-size: 15px;
+}
+
+#actualizacion { display: none; align-items: center; gap: 12px; }
+#actualizacion.visible { display: flex; }
+
+#actualizacion button {
+    border: 0;
+    border-radius: 8px;
+    padding: 6px 12px;
+    background: var(--acento);
+    color: var(--acento-texto);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Las grillas no se ensanchan con su contenido (una tabla ancha se desplaza adentro) */
+.tablas, .ejercicios, .ayuda { grid-template-columns: minmax(0, 1fr); }

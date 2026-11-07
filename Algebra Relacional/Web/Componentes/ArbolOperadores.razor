@@ -1,0 +1,94 @@
+@* El árbol de operadores de una consulta, paso a paso: cada nodo muestra
+   cuántas filas produce, y al tocarlo se ve qué hace, su esquema y su
+   resultado. Los resultados de todos los nodos salen de una sola ejecución
+   (Calculadora.ScriptPasos). *@
+@inject Js Js
+
+@if (error != null) {
+    <p class="aviso error">No se pudo calcular el paso a paso: @error</p>
+} else if (nodos == null) {
+    <p class="aviso">Calculando cada paso…</p>
+} else {
+    <p class="pista arbol-pista">Se lee de abajo hacia arriba: las hojas son las relaciones y cada operador trabaja sobre el resultado de los de abajo. Tocá un nodo para ver su resultado.</p>
+    <div class="arbol-scroll">
+        <svg class="arbol" width="@Ancho" height="@Alto" viewBox="0 0 @Ancho @Alto" role="tree" aria-label="Árbol de operadores">
+            @foreach (var n in nodos) {
+                foreach (var h in n.Hijos) {
+                    <line x1="@Cx(n)" y1="@(Cy(n) + AltoNodo / 2)" x2="@Cx(h)" y2="@(Cy(h) - AltoNodo / 2)"
+                          class="@(n.Variable != null ? "arista variable" : "arista")" />
+                }
+            }
+            @foreach (var n in nodos) {
+                var nodo = n;
+                bool elegido = nodo.Id == elegidoId;
+                <g class="nodo @(elegido ? "elegido" : "") @(nodo.Hijos.Count == 0 ? "hoja" : "") @(nodo.Variable != null ? "variable" : "")"
+                   transform="translate(@(Cx(nodo) - AnchoNodo / 2), @(Cy(nodo) - AltoNodo / 2))"
+                   role="treeitem" tabindex="0" aria-selected="@(elegido ? "true" : "false")"
+                   @onclick="() => elegidoId = nodo.Id"
+                   @onkeydown="e => Tecla(e, nodo)">
+                    <title>@nodo.Etiqueta</title>
+                    <rect width="@AnchoNodo" height="@AltoNodo" rx="10" />
+                    <text x="@(AnchoNodo / 2)" y="19" class="etiqueta-nodo">@Corto(nodo)</text>
+                    <text x="@(AnchoNodo / 2)" y="36" class="filas-nodo">@Filas(nodo)</text>
+                </g>
+            }
+        </svg>
+    </div>
+
+    var sel = nodos[elegidoId];
+    var res = resultados[elegidoId];
+    <div class="paso">
+        <h3>@(sel.Variable != null ? sel.Variable : sel.Etiqueta)</h3>
+        <p>@Calculadora.Describir(sel)</p>
+        <div class="columnas">
+            @foreach (var a in sel.Expr.Esquema.Atributos) { <span class="columna">@a</span> }
+        </div>
+        <TablaResultado Columnas="res.Columnas" Filas="res.Filas" Atributos="sel.Expr.Esquema.Atributos"
+                        NombreArchivo="paso" />
+        <details class="detalle interno">
+            <summary>SQL de este paso</summary>
+            <pre>@Calculadora.SqlPaso(Consulta, sel.Expr)</pre>
+        </details>
+    </div>
+}
+
+@code {
+    [Parameter] public ConsultaCompilada Consulta { get; set; }
+
+    const int Casillero = 150, AnchoNodo = 138, AltoNodo = 46, Nivel = 80, Margen = 8;
+    List<Calculadora.NodoArbol> nodos;
+    List<TablaSql> resultados;
+    int elegidoId;
+    string error;
+    ConsultaCompilada calculada;
+
+    protected override async Task OnParametersSetAsync() {
+        if (ReferenceEquals(Consulta, calculada)) return;
+        calculada = Consulta;
+        nodos = null; error = null; elegidoId = 0;
+        var lista = Calculadora.Arbol(Consulta);
+        var r = await Js.EjecutarSql(Calculadora.ScriptPasos(Consulta, lista.Select(n => n.Expr)));
+        if (!r.Ok || r.Resultados.Count != lista.Count) { error = r.Error ?? "faltan resultados"; return; }
+        resultados = r.Resultados;
+        nodos = lista;
+    }
+
+    int Ancho => (int)((nodos.Max(n => n.X) + 1) * Casillero) + 2 * Margen;
+    int Alto => (nodos.Max(n => n.Nivel) + 1) * Nivel + 2 * Margen - (Nivel - AltoNodo);
+    double Cx(Calculadora.NodoArbol n) => Margen + n.X * Casillero + Casillero / 2.0;
+    double Cy(Calculadora.NodoArbol n) => Margen + n.Nivel * Nivel + AltoNodo / 2.0;
+
+    void Tecla(KeyboardEventArgs e, Calculadora.NodoArbol n) {
+        if (e.Key == "Enter" || e.Key == " ") elegidoId = n.Id;
+    }
+
+    static string Corto(Calculadora.NodoArbol n) {
+        string s = n.Variable ?? n.Etiqueta;
+        return s.Length <= 17 ? s : s[..16] + "…";
+    }
+
+    string Filas(Calculadora.NodoArbol n) {
+        int c = resultados[n.Id].Filas.Count;
+        return c + (c == 1 ? " fila" : " filas");
+    }
+}

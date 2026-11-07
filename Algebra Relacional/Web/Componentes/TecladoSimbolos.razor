@@ -1,0 +1,17 @@
+@* Los botones de los símbolos (Teclado.cs). preventDefault en todo el
+   teclado (no solo en los botones): tocar un botón o el espacio entre botones
+   no le saca el foco al editor, así que el teclado del teléfono no se cierra. *@
+<div class="teclado" aria-label="Símbolos" @onmousedown:preventDefault="true">
+    @foreach (var grupo in Teclado.Grupos) {
+        <div class="grupo" role="group" aria-label="@grupo.Nombre">
+            @foreach (var t in grupo.Teclas) {
+                <button class="tecla" title="@t.Ayuda" aria-label="@t.Ayuda"
+                        @onclick="() => AlInsertar.InvokeAsync(t.Inserta)">@t.Simbolo</button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public EventCallback<string> AlInsertar { get; set; }
+}

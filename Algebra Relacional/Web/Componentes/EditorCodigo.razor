@@ -1,0 +1,111 @@
+@* Editor de álgebra relacional: un <textarea> común con una capa atrás que
+   muestra el mismo texto pintado (resaltado, paréntesis, errores). El texto
+   del textarea es transparente; se ve el de la capa. Se usa un textarea (y no
+   un editor más complejo) para que el teclado del teléfono y el teclado de
+   símbolos funcionen igual que siempre. Todo lo visual está en wwwroot/js/app.js. *@
+@inject Js Js
+@implements IAsyncDisposable
+
+<div class="editor-marco">
+    <pre class="editor-capa @Clase" aria-hidden="true" @ref="capa"></pre>
+    <textarea @ref="area" id="@Id" class="editor @Clase" rows="@Filas"
+              spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"
+              aria-describedby="@(sugerencias.Count > 0 ? Id + "-sugerencias" : null)"
+              placeholder="@Placeholder" value="@Valor" @oninput="AlEscribir"></textarea>
+</div>
+@if (sugerencias.Count > 0) {
+    <div class="sugerencias" id="@(Id + "-sugerencias")" aria-label="Sugerencias" @onmousedown:preventDefault="true">
+        @foreach (var s in sugerencias) {
+            <button class="sugerencia" @onclick="() => Completar(s)">@s</button>
+        }
+        <span class="pista">Tab completa la primera</span>
+    </div>
+}
+
+@code {
+    [Parameter] public string Id { get; set; }
+    [Parameter] public string Valor { get; set; }
+    [Parameter] public EventCallback<string> ValorChanged { get; set; }
+    [Parameter] public string Placeholder { get; set; }
+    [Parameter] public int Filas { get; set; } = 5;
+    [Parameter] public string Clase { get; set; }
+    // Errores para marcar en el texto: (línea, columna) desde 1.
+    [Parameter] public IReadOnlyList<(int Linea, int Col)> Marcas { get; set; }
+    // Si está, se muestran sugerencias para la palabra que se escribe.
+    [Parameter] public Func<string, List<string>> Sugerir { get; set; }
+    [Parameter] public EventCallback AlEjecutar { get; set; }
+    [Parameter] public bool ConvertirPalabras { get; set; }
+    // Achicar el editor cuando se abre el teclado del teléfono (ver app.js).
+    [Parameter] public bool AjustarAlTeclado { get; set; }
+
+    ElementReference area, capa;
+    IJSObjectReference js;
+    DotNetObjectReference<EditorCodigo> yo;
+    List<string> sugerencias = new();
+    string ultimoPintado;
+    string marcasEnviadas = "";
+    bool convertirEnviado;
+
+    protected override async Task OnAfterRenderAsync(bool primeraVez) {
+        if (primeraVez) {
+            js = await Js.Modulo();
+            yo = DotNetObjectReference.Create(this);
+            await js.InvokeVoidAsync("prepararEditor", area, capa, yo,
+                new { convertir = ConvertirPalabras, sugerencias = Sugerir != null, ajustarAlto = AjustarAlTeclado });
+            convertirEnviado = ConvertirPalabras;
+            ultimoPintado = Valor;
+        }
+        if (js == null) return;
+        if (convertirEnviado != ConvertirPalabras) {
+            convertirEnviado = ConvertirPalabras;
+            await js.InvokeVoidAsync("opcionesEditor", area, new { convertir = ConvertirPalabras });
+        }
+        // Las marcas de error se mandan solo cuando cambian.
+        var marcas = (Marcas ?? Array.Empty<(int, int)>()).Select(m => new { linea = m.Linea, col = m.Col }).ToList();
+        string clave = string.Join(";", marcas.Select(m => m.linea + "," + m.col));
+        if (clave != marcasEnviadas) {
+            marcasEnviadas = clave;
+            await js.InvokeVoidAsync("marcar", area, marcas);
+        } else if (Valor != ultimoPintado) {
+            // El texto cambió desde Blazor (otra pestaña, el historial...): se repinta.
+            await js.InvokeVoidAsync("refrescar", area);
+        }
+        ultimoPintado = Valor;
+    }
+
+    async Task AlEscribir(ChangeEventArgs e) {
+        Valor = e.Value?.ToString() ?? "";
+        ultimoPintado = Valor;                  // app.js ya lo pintó
+        await ValorChanged.InvokeAsync(Valor);
+    }
+
+    // Lo llama app.js cuando cambia la palabra que se está escribiendo.
+    [JSInvokable]
+    public async Task Palabra(string prefijo) {
+        var nuevas = Sugerir == null || string.IsNullOrEmpty(prefijo) ? new List<string>() : Sugerir(prefijo);
+        if (nuevas.SequenceEqual(sugerencias)) return;
+        sugerencias = nuevas;
+        await js.InvokeVoidAsync("sugerir", area, sugerencias.FirstOrDefault());
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task Ejecutar() => AlEjecutar.InvokeAsync();
+
+    async Task Completar(string palabra) => await js.InvokeVoidAsync("completar", area, palabra);
+
+    public async Task Insertar(string texto) {
+        js ??= await Js.Modulo();
+        await js.InvokeVoidAsync("insertar", area, texto);
+    }
+
+    public async Task IrA(int linea, int col) {
+        js ??= await Js.Modulo();
+        await js.InvokeVoidAsync("irA", area, linea, col);
+    }
+
+    public async ValueTask DisposeAsync() {
+        yo?.Dispose();
+        await Task.CompletedTask;
+    }
+}

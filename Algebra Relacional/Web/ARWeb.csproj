@@ -6,6 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
     <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
+    <!-- Sin datos de culturas (ICU): la app no los necesita y la descarga es más chica -->
+    <InvariantGlobalization>true</InvariantGlobalization>
     <!-- Avisos típicos del código que genera Coco/R -->
     <NoWarn>CS0162;CS0168;CS0219;CS0414;CS0649;CS8981</NoWarn>
   </PropertyGroup>
