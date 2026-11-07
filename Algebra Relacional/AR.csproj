@@ -15,5 +15,8 @@
     <Compile Remove="Web/**" />
     <None Remove="Web/**" />
     <Content Remove="Web/**" />
+    <!-- Las pruebas de la web son otro proyecto (PruebasWeb/PruebasWeb.csproj) -->
+    <Compile Remove="PruebasWeb/**" />
+    <None Remove="PruebasWeb/**" />
   </ItemGroup>
 </Project>

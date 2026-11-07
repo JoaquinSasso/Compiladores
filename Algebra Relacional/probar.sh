@@ -7,6 +7,7 @@
 #                          tiene que ser igual al archivo .esperado
 #   pruebas/sql/         → el SQL generado se ejecuta en SQLite y el resultado
 #                          de cada consulta tiene que ser igual al .esperado
+#   PruebasWeb/          → la lógica de la app web (xunit, con dotnet test)
 dotnet build -c Release -o bin/out > /dev/null || { echo "Falló la compilación"; exit 1; }
 # En Ubuntu el intérprete es python3; en Windows (Git Bash) suele ser python,
 # y python3 es un alias de la Microsoft Store que no funciona.
@@ -63,5 +64,11 @@ for f in pruebas/sql/*.ra; do
     fallos=$((fallos+1))
   fi
 done
+# La lógica de la app web (Web/Servicios): proyecto de pruebas aparte, con xunit
+if salida=$(dotnet test PruebasWeb 2>&1); then
+  echo "bien   PruebasWeb ($(echo "$salida" | grep -oE "(Superado|Passed): +[0-9]+" | grep -oE "[0-9]+") pruebas de la app web)"
+else
+  echo "FALLA  PruebasWeb:"; echo "$salida" | grep -E "FAIL|Mensaje de error|Expected|Actual|error" ; fallos=$((fallos+1))
+fi
 echo "$fallos prueba(s) fallaron"
 exit $fallos

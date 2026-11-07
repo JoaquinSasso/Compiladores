@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pruebas de la lógica de la app web (Web/Servicios), sin navegador.
+       Se enlazan los mismos archivos que usa la web, igual que hace ARWeb.csproj
+       con el compilador. El SQL se ejecuta con SQLite (Microsoft.Data.Sqlite). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <NoWarn>CS0162;CS0168;CS0219;CS0414;CS0649;CS8981</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Ast.cs" Link="Compilador\Ast.cs" />
+    <Compile Include="..\Scanner.cs" Link="Compilador\Scanner.cs" />
+    <Compile Include="..\Parser.cs" Link="Compilador\Parser.cs" />
+    <Compile Include="..\Semantico.cs" Link="Compilador\Semantico.cs" />
+    <Compile Include="..\Generador.cs" Link="Compilador\Generador.cs" />
+    <Compile Include="..\Compilador.cs" Link="Compilador\Compilador.cs" />
+    <Compile Include="..\Web\Ejemplos.cs" Link="Web\Ejemplos.cs" />
+    <Compile Include="..\Web\Servicios\*.cs" Link="Web\Servicios\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+  </ItemGroup>
+
+</Project>
