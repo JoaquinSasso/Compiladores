@@ -57,7 +57,8 @@ public static class Compilador {
         foreach (var linea in errores.ToString().Split('\n')) {
             var partes = linea.TrimEnd('\r').Split('\t', 3);
             if (partes.Length == 3)
-                r.Errores.Add(new ErrorCompilacion(FaseError.Sintaxis, int.Parse(partes[0]), int.Parse(partes[1]), partes[2]));
+                r.Errores.Add(new ErrorCompilacion(FaseError.Sintaxis, int.Parse(partes[0]), int.Parse(partes[1]),
+                                                   TraducirSintaxis(partes[2])));
         }
         if (r.Errores.Count > 0) return r;
 
@@ -79,6 +80,49 @@ public static class Compilador {
         // 3. Generación de SQL.
         r.Sql = new Generador().Generar(parser.programa);
         return r;
+    }
+
+    /*------------------- Mensajes de sintaxis en castellano ------------------*/
+
+    // Coco/R genera los mensajes en inglés, dentro de Parser.cs (que no se edita
+    // a mano). Tienen solo dos formas, así que se traducen acá:
+    //   X expected     → se esperaba X       (X: un terminal)
+    //   invalid NoTerm → se esperaba ...     (ninguna alternativa de NoTerm empieza con ese token)
+    static readonly Dictionary<string, string> nombresTerminales = new Dictionary<string, string> {
+        { "EOF", "el fin del programa (sobra algo)" },
+        { "ident", "un nombre" },
+        { "numero", "un número" },
+        { "cadena", "una cadena entre comillas simples" },
+        { "grupo", "group:" },
+        { "???", "otro símbolo" },
+    };
+
+    static readonly Dictionary<string, string> noTerminales = new Dictionary<string, string> {
+        { "Sentencia", "una consulta o una asignación (nombre = expresión)" },
+        { "OpUnion", "∪ o −" },
+        { "Unario", "una relación, un operador (π, σ, ρ, γ) o un paréntesis" },
+        { "OpProd", "un operador binario (×, ⋈, ⟕, ⟖, ⟗, ÷)" },
+        { "Flecha", "→ (o ->)" },
+        { "ParRen", "un renombre: nuevo ← viejo o viejo → nuevo" },
+        { "FlechaIzq", "← (o <-)" },
+        { "Agregado", "una función de agregación (count, sum, avg, min, max)" },
+        { "FuncAgg", "una función de agregación (count, sum, avg, min, max)" },
+        { "CondNo", "una condición" },
+        { "Operando", "un atributo, un número o una cadena" },
+        { "OpRel", "un comparador (=, ≠, <, >, ≤, ≥)" },
+        { "Valor", "un valor (número, cadena, null, true o false)" },
+    };
+
+    public static string TraducirSintaxis(string m) {
+        var esperado = Regex.Match(m, "^(.*) expected$");
+        if (esperado.Success) {
+            string t = esperado.Groups[1].Value;
+            return "se esperaba " + (nombresTerminales.TryGetValue(t, out var n) ? n : t);
+        }
+        var invalido = Regex.Match(m, @"^invalid (\w+)$");
+        if (invalido.Success)
+            return "se esperaba " + (noTerminales.TryGetValue(invalido.Groups[1].Value, out var n) ? n : invalido.Groups[1].Value);
+        return m;
     }
 
     // Título de una sentencia, como lo muestra --esquemas

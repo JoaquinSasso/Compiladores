@@ -106,7 +106,7 @@ Dos cosas para destacar en la exposición:
 Si la sintaxis está mal, el compilador se detiene acá. Por ejemplo, con `pi nyAp (alumno` (falta el paréntesis):
 
 ```
--- línea 2 col 1: ")" expected
+-- línea 2 col 1: se esperaba ")"
 1 error(es) de sintaxis
 ```
 
