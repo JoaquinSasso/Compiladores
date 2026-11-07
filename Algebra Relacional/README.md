@@ -20,6 +20,7 @@ operador con el teclado, leer [GUIA.md](GUIA.md).
 | `Compilador.cs` | El compilador como biblioteca: `Compilador.Compilar(fuente)` devuelve los errores, el AST y el SQL. |
 | `Program.cs` | Programa principal (línea de comandos): lee un archivo y llama a `Compilador.Compilar`. |
 | `Web/` | La app web: calculadora de álgebra relacional que se instala como PWA y funciona sin conexión. |
+| `PruebasWeb/` | Pruebas de la lógica de la app web (xunit). Las corre `probar.sh`. |
 | `pruebas/validas/` | Programas sin errores de sintaxis. |
 | `pruebas/invalidas/` | Programas que tienen que dar errores de sintaxis. |
 | `pruebas/ast/` | Cada `.ra` tiene al lado un `.esperado` con el árbol escrito a mano. |
@@ -74,10 +75,23 @@ Requiere .NET 10 (`net10.0` en `AR.csproj`), mono para ejecutar `Coco.exe` y Pyt
 
 ## App web
 
-En `Web/` hay una app web (Blazor WebAssembly) que usa el mismo compilador: una
-calculadora con botones para los símbolos y una pestaña para cargar el dataset. El
-SQL se ejecuta en el navegador con SQLite compilado a WebAssembly (sql.js), así que
-no necesita servidor. Se puede instalar en el teléfono y funciona sin conexión.
+En `Web/` hay una app web (Blazor WebAssembly) para los alumnos de Base de Datos 1,
+que usa el mismo compilador. El SQL se ejecuta en el navegador con SQLite compilado
+a WebAssembly (sql.js), así que no necesita servidor. Se puede instalar en el
+teléfono y funciona sin conexión. Tiene:
+
+- **Calculadora:** botones para los símbolos, editor con colores, errores marcados
+  mientras se escribe, sugerencias de nombres, conversión de palabras en símbolos
+  (`pi` → `π`), varias pestañas de consulta, historial, y un **paso a paso** con el
+  árbol de la consulta y el resultado de cada operador.
+- **Ejercicios:** guías con ejercicios que se corrigen solos (se compara el resultado
+  con el de la solución). Una guía es un archivo de texto; ver la pestaña.
+- **Dataset:** varios datasets con nombre, importar CSV, ver los datos de cada tabla.
+- **Ayuda:** cada operador con un ejemplo para probar.
+- Compartir una consulta o una guía con un enlace, y exportar resultados (CSV o tabla).
+
+En cada push a `main`, `.github/workflows/web.yml` corre las pruebas y publica la
+app en GitHub Pages (hay que activarlo una vez en Settings → Pages → Source: GitHub Actions).
 
 ```bash
 dotnet run --project Web                             # abrir http://localhost:5041

@@ -61,6 +61,8 @@ Todo el proyecto vive en la raíz de `Algebra Relacional/` (el repositorio git e
 | `Compilador.cs` | La biblioteca: `Compilador.Compilar(fuente)` agrega el BOM y ejecuta parser → semántico → generador. Devuelve `ResultadoCompilacion { Errores, Programa, Ast, Sql }`, sin escribir en consola. La usan `Program.cs` y la web. |
 | `Program.cs` | La línea de comandos: lee el archivo, llama a `Compilador.Compilar` e imprime el SQL (con `--esquemas`, los esquemas; con `--ast`, solo el AST). |
 | `Web/` | La app web (Blazor WebAssembly, PWA). Ver la sección "La app web". |
+| `PruebasWeb/` | Pruebas de la lógica de la web (xunit + SQLite de .NET). Las corre `probar.sh` con `dotnet test`. |
+| `../.github/workflows/web.yml` | Corre `probar.sh` y publica la web en GitHub Pages en cada push a `main`. |
 | `probar.sh` | Corre todas las pruebas, y verifica que `Gramatica.atg` esté al día y sea LL(1) para Coco/R. |
 | `GUIA.md` | Guía para la exposición: las fases con un ejemplo real, y cada operador escrito con el teclado latino. Los ejemplos de su sección 4 se verifican a mano al cambiar el lenguaje. |
 | `ejemplos/*.ra` | Programas de ejemplo para la exposición (no son pruebas). |
@@ -81,7 +83,7 @@ Todo el proyecto vive en la raíz de `Algebra Relacional/` (el repositorio git e
 6. **Las clases del AST son `public`**, porque `Parser` es público y expone el campo `programa`.
 7. **`IGNORECASE` está activo:** las palabras clave no distinguen mayúsculas. `x` y `X` son el producto cartesiano, así que **ninguna relación, variable ni atributo puede llamarse `x`**. Es una decisión aceptada, porque las diapositivas de la cátedra usan `ALUMNOS X MATERIAS`.
 8. **Los resolvers usan `scanner.ResetPeek()` y después `scanner.Peek()`.** El primer `Peek()` devuelve el token siguiente a `la`.
-9. **Los mensajes de error de sintaxis los genera Coco/R en inglés** (`")" expected`). Traducirlos queda como mejora pendiente.
+9. **Los mensajes de error de sintaxis los genera Coco/R en inglés** (`")" expected`, `invalid OpRel`), dentro de `Parser.cs`. Como no se puede editar, `Compilador.TraducirSintaxis` los traduce al leerlos: `X expected` → `se esperaba X` (con nombres para `ident`, `numero`, `cadena`, `EOF`...) e `invalid NoTerminal` → `se esperaba ...` (un texto por no terminal, en el diccionario `noTerminales`). **Si se agrega un no terminal con alternativas, hay que agregar su texto ahí**; si no, el mensaje dice `se esperaba NombreDelNoTerminal`.
 10. **Cada cambio en el lenguaje se acompaña de pruebas nuevas:** al menos una válida y una inválida, y un `.esperado` si cambia la forma del árbol.
 
 ## El lenguaje fuente (versión 1)
@@ -240,23 +242,45 @@ Recorre el AST y calcula el **esquema de salida** de cada `ExpRel` (lista ordena
 
 ## Próximos pasos
 
-- Traducir al castellano los mensajes de error de sintaxis de Coco/R (trampa 9).
+- Contrastar los `.esperado` de `pruebas/sql/` con RelaX.
 
 ## La app web (`Web/`)
 
-Prototipo de una interfaz para los alumnos: **Blazor WebAssembly** (el compilador corre en el navegador) + **sql.js** (SQLite 3.49 compilado a WebAssembly) para ejecutar el SQL. Es una **PWA**: se puede instalar en el teléfono y funciona sin conexión (el service worker guarda todo en caché la primera vez).
+Interfaz para los **alumnos de Base de Datos 1** (no para la evaluación de Compiladores): **Blazor WebAssembly** (el compilador corre en el navegador) + **sql.js** (SQLite 3.49 compilado a WebAssembly) para ejecutar el SQL. Es una **PWA**: se puede instalar en el teléfono y funciona sin conexión (el service worker guarda todo en caché la primera vez). Se publica sola en GitHub Pages (`.github/workflows/web.yml`).
 
-- `Web/ARWeb.csproj` **enlaza los archivos del compilador** (`..\Ast.cs`, `..\Parser.cs`, ..., `..\Compilador.cs`; todos menos `Program.cs`): no hay copias. `AR.csproj` excluye `Web/**` para no compilar la web en la línea de comandos.
-- `Web/Pages/Home.razor`: la única página, con dos pestañas. **Calculadora**: teclado de símbolos (`Web/Teclado.cs`), editor de la consulta, resultados en tablas, errores, el SQL generado y el AST. **Dataset**: editor de las tablas (abrir archivo, cargar el ejemplo de `Web/Ejemplos.cs`, vaciar) con la lista de tablas y sus esquemas, o sus errores.
-- **Cómo compila:** el programa es `dataset + "\n" + consulta`. Los errores con línea mayor que la cantidad de líneas del dataset son de la consulta (se les resta ese desplazamiento); los demás se muestran como "dataset, línea N".
-- `Web/wwwroot/js/app.js`: JSInterop. `ejecutarSql` corre el script sentencia por sentencia (`iterateStatements`) para devolver un resultado por cada consulta, aunque no tenga filas (`db.exec` omite las que no tienen filas). También inserta símbolos en el cursor y guarda la consulta y el dataset en `localStorage`.
-- `Web/wwwroot/lib/sqljs/`: sql.js 1.14.2 (licencia MIT), copiado del paquete de npm, para que funcione sin internet.
-- El service worker solo cachea en la versión publicada (`dotnet publish`), no con `dotnet run`.
+- `Web/ARWeb.csproj` **enlaza los archivos del compilador** (`..\Ast.cs`, `..\Parser.cs`, ..., `..\Compilador.cs`; todos menos `Program.cs`): no hay copias. `AR.csproj` excluye `Web/**` y `PruebasWeb/**` para no compilarlos en la línea de comandos. Usa `InvariantGlobalization` (sin ICU: la descarga es más chica), así que **no usar `string.Normalize` ni nada que dependa de la cultura**.
+
+**Estructura:**
+
+| Carpeta / archivo | Qué es |
+|---|---|
+| `Servicios/` | **Lógica sin interfaz ni JavaScript** (la prueba `PruebasWeb/`). `Calculadora.cs`: compila dataset + consulta y separa los errores, arma el árbol paso a paso y las sugerencias. `Comparador.cs`: corrige ejercicios. `Guias.cs`: lee las guías de ejercicios y tiene la de ejemplo. `Csv.cs`: importar y exportar. `Estado.cs`: lo que se guarda en `localStorage`. `Ayuda.cs`: el contenido de la pestaña Ayuda. |
+| `Interop/Js.cs` | Acceso a `wwwroot/js/app.js` (servicio registrado en `Program.cs`). |
+| `Componentes/` | `EditorCodigo` (textarea + capa de resaltado), `TecladoSimbolos`, `ListaErrores`, `TablaResultado` (orden, de a 100 filas, exportar), `ArbolOperadores` (paso a paso), y las pestañas `VistaDataset`, `VistaEjercicios`, `VistaAyuda`. |
+| `Pages/Home.razor` | La única página: las cuatro pestañas (Calculadora, Ejercicios, Dataset, Ayuda), el estado, la compilación mientras se escribe, la ejecución, los ejercicios y los enlaces compartidos. |
+| `wwwroot/js/app.js` | SQLite (`ejecutarSql`), el editor (resaltado, conversión de palabras, autocompletado, ajuste al teclado del teléfono), `localStorage`, descargas, portapapeles y enlaces compartidos. |
+| `wwwroot/lib/sqljs/` | sql.js 1.14.2 (licencia MIT), copiado del paquete de npm, para que funcione sin internet. |
+| `preparar_pages.py` | Adapta la versión publicada a la subcarpeta de GitHub Pages (`<base href>`, hash de `index.html` en el service worker, `404.html`, `.nojekyll`). |
+
+**Decisiones (no cambiarlas sin motivo):**
+
+- **Cómo compila:** el programa es `dataset + "\n" + consulta` (`Calculadora.Compilar`). Si el dataset solo tiene errores, se muestran esos y no se mira la consulta. Si no, los errores con línea mayor que la cantidad de líneas del dataset son de la consulta (se les resta ese desplazamiento). Se compila **mientras se escribe** (con una espera de 450 ms); "Ejecutar" compila y además corre el SQL.
+- **El editor es un `<textarea>` con el texto transparente sobre una capa `<pre>`** que muestra el mismo texto pintado (`pintar` en `app.js`, con un analizador léxico chico que imita los tokens de `AR.atg`). No se usa CodeMirror ni similar porque el teclado de símbolos y los arreglos para el teclado del teléfono (`insertar`, `ajustarAlto`) dependen del textarea. **Las dos capas tienen que tener exactamente la misma letra, relleno, borde y cortes de línea** (CSS de `.editor, .editor-capa`).
+- **Palabras → símbolos:** al escribir un espacio o `(` después de `pi`, `join`, `left join`, `and`, etc. (y `<=`, `->`, `!=`...), se reemplazan por el símbolo, salvo dentro de comentarios y cadenas. Se puede apagar (opción guardada).
+- **Paso a paso:** `Calculadora.Arbol` arma el árbol de operadores de una consulta; las variables se "abren" (su hijo es su expresión, con línea punteada). `Calculadora.ScriptPasos` reutiliza el generador tal cual: un programa con las asignaciones previas y **una consulta por nodo**, que se ejecuta una sola vez y da el resultado de cada paso.
+- **Ejercicios:** una guía es un archivo de texto con secciones `## guía:`, `## dataset`, `## ejercicio: título` (enunciado) y `## solución` (formato en `Guias.cs`; `##` no puede aparecer en el álgebra). El dataset de la guía se copia a la lista de datasets. **Corregir** ejecuta la respuesta y la solución con el mismo dataset y compara la última consulta de cada una **como conjuntos**: no importa el orden de las filas ni las repetidas; las columnas se emparejan por nombre si coinciden todos, y si no, por posición (así no importa el alias).
+- **Compartir:** el contenido (dataset + consulta, o una guía) va comprimido con deflate en el `#hash` de la URL (`#c=...`), así que no pasa por ningún servidor. Al abrirlo se agrega en una pestaña y un dataset nuevos, sin pisar nada.
+- **Estado:** todo se guarda como un solo JSON en `localStorage["ar.estado"]` (`Estado.cs`). Si no está, se migra lo que guardaba la versión anterior (`ar.consulta` y `ar.dataset`).
+- **Actualizaciones:** cuando el service worker baja una versión nueva, `index.html` muestra "Hay una versión nueva" y, al tocar Actualizar, le pide que se active (`skipWaiting`) y recarga.
+- El service worker solo cachea en la versión publicada (`dotnet publish`), no con `dotnet run`. Su base es su propia carpeta, así que funciona en una subcarpeta.
 
 ```bash
 dotnet run --project Web                                # desarrollo: http://localhost:5041
 dotnet publish Web -c Release -o Web/bin/publicada      # versión publicada (Web/bin/publicada/wwwroot)
+dotnet test PruebasWeb                                  # pruebas de Web/Servicios (también las corre probar.sh)
 ```
+
+En Git Bash, `python preparar_pages.py carpeta /Compiladores/` necesita `MSYS_NO_PATHCONV=1` delante: si no, Git Bash convierte `/Compiladores/` en una ruta de Windows.
 
 ## Estilo
 

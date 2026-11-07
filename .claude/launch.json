@@ -8,6 +8,12 @@
       "port": 5041
     },
     {
+      "name": "web-5043",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "Algebra Relacional/Web", "--no-launch-profile", "--", "--urls", "http://localhost:5043"],
+      "port": 5043
+    },
+    {
       "name": "web-publicada",
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "5050", "--bind", "127.0.0.1", "--directory", "Algebra Relacional/Web/bin/publicada/wwwroot"],
