@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "Algebra Relacional/Web", "--launch-profile", "red"],
+      "port": 5041
+    },
+    {
+      "name": "web-publicada",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5050", "--bind", "127.0.0.1", "--directory", "Algebra Relacional/Web/bin/publicada/wwwroot"],
+      "port": 5050
+    }
+  ]
+}

@@ -1,0 +1,311 @@
+﻿@page "/"
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>Álgebra relacional → SQL</PageTitle>
+
+<header class="barra">
+    <div class="marca">
+        <span class="logo" aria-hidden="true">π</span>
+        <h1>Álgebra relacional</h1>
+    </div>
+    <nav class="pestanas" role="tablist" aria-label="Secciones">
+        <button role="tab" aria-selected="@(pestana == Pestana.Calculadora)"
+                class="pestana @(pestana == Pestana.Calculadora ? "activa" : "")"
+                @onclick="() => pestana = Pestana.Calculadora">Calculadora</button>
+        <button role="tab" aria-selected="@(pestana == Pestana.Dataset)"
+                class="pestana @(pestana == Pestana.Dataset ? "activa" : "")"
+                @onclick="() => pestana = Pestana.Dataset">
+            Dataset
+            @if (erroresDataset.Count > 0) {
+                <span class="insignia error" title="El dataset tiene errores">!</span>
+            } else if (tablas.Count > 0) {
+                <span class="insignia">@tablas.Count</span>
+            }
+        </button>
+    </nav>
+</header>
+
+<main>
+    @* ============================== Calculadora ============================== *@
+    <section class="seccion" role="tabpanel" hidden="@(pestana != Pestana.Calculadora)">
+        @* preventDefault en todo el teclado (no solo en los botones): tocar un
+           botón o el espacio entre botones no le saca el foco al editor, así
+           que el teclado del teléfono no se cierra. *@
+        <div class="teclado" aria-label="Símbolos" @onmousedown:preventDefault="true">
+            @foreach (var grupo in Teclado.Grupos) {
+                <div class="grupo" role="group" aria-label="@grupo.Nombre">
+                    @foreach (var t in grupo.Teclas) {
+                        <button class="tecla" title="@t.Ayuda" aria-label="@t.Ayuda"
+                                @onclick="() => Insertar(t.Inserta)">@t.Simbolo</button>
+                    }
+                </div>
+            }
+        </div>
+
+        <label class="etiqueta" for="consulta">Consulta</label>
+        <textarea id="consulta" @ref="editorConsulta" class="editor" rows="5"
+                  spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"
+                  placeholder="π nyAp (alumno ⋈ examen)"
+                  @bind="consulta" @bind:event="oninput" @bind:after="GuardarConsulta"></textarea>
+
+        <div class="acciones">
+            <button @ref="botonEjecutar" class="boton primario" @onclick="Ejecutar" disabled="@ejecutando">
+                @(ejecutando ? "Ejecutando…" : "Ejecutar")
+            </button>
+            <span class="pista">o Ctrl+Enter</span>
+        </div>
+
+        @if (errores.Count > 0) {
+            <div class="aviso error" role="alert">
+                <h2>@tituloErrores</h2>
+                <ul>
+                    @foreach (var e in errores) {
+                        <li>
+                            @if (e.EnDataset) {
+                                <button class="enlace" @onclick="() => pestana = Pestana.Dataset">dataset, línea @e.Linea</button>
+                            } else {
+                                <span class="donde">línea @e.Linea, col @e.Col</span>
+                            }
+                            <span>@e.Mensaje</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        } else if (mensaje != null) {
+            <p class="aviso">@mensaje</p>
+        }
+
+        @for (int i = 0; i < resultados.Count; i++) {
+            var r = resultados[i];
+            <article class="resultado">
+                <header>
+                    <h2>Resultado @(i + 1)</h2>
+                    <span class="cuenta">@r.Filas.Count @(r.Filas.Count == 1 ? "fila" : "filas")</span>
+                </header>
+                <code class="origen">@r.Texto</code>
+                <div class="tabla-scroll">
+                    <table>
+                        <thead>
+                            <tr>@foreach (var c in r.Columnas) { <th>@c</th> }</tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var fila in r.Filas) {
+                                <tr>
+                                    @foreach (var v in fila) {
+                                        if (v == null) { <td class="nulo">NULL</td> } else { <td>@v</td> }
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    @if (r.Filas.Count == 0) { <p class="vacio">La relación está vacía.</p> }
+                </div>
+            </article>
+        }
+
+        @if (sql != null) {
+            <details class="detalle">
+                <summary>SQL generado</summary>
+                <pre>@sql</pre>
+            </details>
+        }
+        @if (ast != null) {
+            <details class="detalle">
+                <summary>Árbol sintáctico</summary>
+                <pre>@ast</pre>
+            </details>
+        }
+    </section>
+
+    @* ================================ Dataset ================================ *@
+    <section class="seccion" role="tabpanel" hidden="@(pestana != Pestana.Dataset)">
+        <p class="explicacion">
+            Las tablas que se definen acá se pueden usar en la calculadora. El formato es el de
+            RelaX: <code>nombre = { columnas  filas }</code>.
+        </p>
+
+        <div class="acciones">
+            <label class="boton">
+                Abrir archivo
+                <InputFile OnChange="AbrirArchivo" accept=".txt,.ra,text/plain" class="oculto" />
+            </label>
+            <button class="boton" @onclick="CargarEjemplo">Cargar ejemplo</button>
+            <button class="boton" @onclick="Vaciar">Vaciar</button>
+        </div>
+
+        <label class="etiqueta" for="dataset">Dataset</label>
+        <textarea id="dataset" class="editor dataset" rows="16"
+                  spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"
+                  placeholder="alumno = {&#10;cuil, nyAp&#10;10, 'Juan'&#10;}"
+                  @bind="dataset" @bind:event="oninput" @bind:after="DatasetCambio"></textarea>
+
+        @if (erroresDataset.Count > 0) {
+            <div class="aviso error" role="alert">
+                <h2>El dataset tiene errores</h2>
+                <ul>
+                    @foreach (var e in erroresDataset) {
+                        <li><span class="donde">línea @e.Linea, col @e.Col</span> <span>@e.Mensaje</span></li>
+                    }
+                </ul>
+            </div>
+        } else if (tablas.Count == 0) {
+            <p class="aviso">Todavía no hay tablas definidas.</p>
+        } else {
+            <h2 class="subtitulo">Tablas</h2>
+            <ul class="tablas">
+                @foreach (var t in tablas) {
+                    <li>
+                        <strong>@t.Nombre</strong>
+                        <span class="cuenta">@t.Detalle</span>
+                        <div class="columnas">
+                            @foreach (var c in t.Columnas) { <span class="columna">@c</span> }
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+</main>
+
+@code {
+    enum Pestana { Calculadora, Dataset }
+    Pestana pestana = Pestana.Calculadora;
+
+    string consulta = Ejemplos.Consulta;
+    string dataset = Ejemplos.Dataset;
+
+    ElementReference editorConsulta, botonEjecutar;
+    IJSObjectReference js;
+
+    // Lo que se muestra en la calculadora
+    bool ejecutando;
+    string tituloErrores, mensaje, sql, ast;
+    List<ErrorVista> errores = new();
+    List<ResultadoVista> resultados = new();
+
+    // Lo que se muestra en la pestaña del dataset
+    List<ErrorVista> erroresDataset = new();
+    List<TablaVista> tablas = new();
+
+    record ErrorVista(int Linea, int Col, string Mensaje, bool EnDataset);
+    record ResultadoVista(string Texto, List<string> Columnas, List<List<string>> Filas);
+    record TablaVista(string Nombre, string Detalle, List<string> Columnas);
+
+    // Lo que devuelve ejecutarSql (wwwroot/js/app.js)
+    class RespuestaSql { public bool Ok { get; set; } public string Error { get; set; } public List<TablaSql> Resultados { get; set; } }
+    class TablaSql { public List<string> Columnas { get; set; } public List<List<string>> Filas { get; set; } }
+
+    protected override void OnInitialized() => AnalizarDataset();
+
+    protected override async Task OnAfterRenderAsync(bool primeraVez) {
+        if (!primeraVez) return;
+        js = await JS.InvokeAsync<IJSObjectReference>("import", "./js/app.js");
+        await js.InvokeVoidAsync("prepararEditor", editorConsulta, botonEjecutar);
+        // Recuperar lo que se escribió la última vez en este navegador
+        var c = await js.InvokeAsync<string>("leer", "ar.consulta");
+        var d = await js.InvokeAsync<string>("leer", "ar.dataset");
+        if (c != null) consulta = c;
+        if (d != null) { dataset = d; AnalizarDataset(); }
+        StateHasChanged();
+    }
+
+    // ------------------------------------------------------------ Calculadora
+
+    async Task Insertar(string texto) => await js.InvokeVoidAsync("insertar", editorConsulta, texto);
+
+    async Task GuardarConsulta() => await js.InvokeVoidAsync("guardar", "ar.consulta", consulta);
+
+    async Task Ejecutar() {
+        ejecutando = true;
+        errores.Clear(); resultados.Clear();
+        mensaje = sql = ast = null;
+
+        // Se compila el dataset seguido de la consulta, como un solo programa.
+        // Las líneas de la consulta empiezan después de las del dataset.
+        int lineasDataset = dataset.Split('\n').Length;
+        var r = Compilador.Compilar(dataset + "\n" + consulta);
+        ast = r.Ast;
+
+        if (r.Errores.Count > 0) {
+            tituloErrores = r.HayErroresDeSintaxis ? "Error de sintaxis" : "Error semántico";
+            if (r.Errores.Count > 1) tituloErrores = r.HayErroresDeSintaxis ? "Errores de sintaxis" : "Errores semánticos";
+            foreach (var e in r.Errores) {
+                bool enDataset = e.Linea <= lineasDataset;
+                errores.Add(new ErrorVista(enDataset ? e.Linea : e.Linea - lineasDataset, e.Col, e.Mensaje, enDataset));
+            }
+            ejecutando = false;
+            return;
+        }
+
+        sql = r.Sql;
+        var consultas = r.Programa.Instrucciones.OfType<Consulta>().ToList();
+        if (consultas.Count == 0) {
+            mensaje = string.IsNullOrWhiteSpace(consulta)
+                ? "Escribí una consulta, por ejemplo: π nyAp (alumno)"
+                : "No hay nada para mostrar: las asignaciones (nombre = …) solo definen variables. Agregá una expresión para ver su resultado.";
+            ejecutando = false;
+            return;
+        }
+
+        var respuesta = await js.InvokeAsync<RespuestaSql>("ejecutarSql", sql);
+        if (!respuesta.Ok) {
+            tituloErrores = "Error al ejecutar el SQL";
+            errores.Add(new ErrorVista(0, 0, respuesta.Error, false));
+        } else {
+            var lineas = (dataset + "\n" + consulta).Split('\n');
+            for (int i = 0; i < consultas.Count && i < respuesta.Resultados.Count; i++) {
+                var t = respuesta.Resultados[i];
+                string texto = lineas[consultas[i].Linea - 1].Trim();
+                resultados.Add(new ResultadoVista(texto, t.Columnas, t.Filas));
+            }
+        }
+        ejecutando = false;
+    }
+
+    // ---------------------------------------------------------------- Dataset
+
+    async Task DatasetCambio() {
+        AnalizarDataset();
+        await js.InvokeVoidAsync("guardar", "ar.dataset", dataset);
+    }
+
+    // Compila solo el dataset, para mostrar sus tablas (o sus errores).
+    void AnalizarDataset() {
+        erroresDataset.Clear(); tablas.Clear();
+        var r = Compilador.Compilar(dataset);
+        foreach (var e in r.Errores) erroresDataset.Add(new ErrorVista(e.Linea, e.Col, e.Mensaje, true));
+        if (r.Errores.Count > 0) return;
+        foreach (var a in r.Programa.Instrucciones.OfType<Asignacion>()) {
+            var cols = a.Expr.Esquema.Atributos.Select(x => x.Nombre + ": " + Semantico.NombreDominio(x.Tipo)).ToList();
+            string detalle = a.Expr is TablaDatos td
+                ? td.Filas.Count + (td.Filas.Count == 1 ? " fila" : " filas")
+                : "variable";
+            tablas.Add(new TablaVista(a.Nombre, detalle, cols));
+        }
+    }
+
+    async Task AbrirArchivo(InputFileChangeEventArgs e) {
+        using var lector = new StreamReader(e.File.OpenReadStream(maxAllowedSize: 2_000_000));
+        dataset = await lector.ReadToEndAsync();
+        await DatasetCambio();
+    }
+
+    async Task CargarEjemplo() {
+        if (dataset != Ejemplos.Dataset && !string.IsNullOrWhiteSpace(dataset)
+            && !await JS.InvokeAsync<bool>("confirm", "¿Reemplazar el dataset actual por el de ejemplo?")) return;
+        dataset = Ejemplos.Dataset;
+        await DatasetCambio();
+    }
+
+    async Task Vaciar() {
+        if (!string.IsNullOrWhiteSpace(dataset)
+            && !await JS.InvokeAsync<bool>("confirm", "¿Borrar todo el dataset?")) return;
+        dataset = "";
+        await DatasetCambio();
+    }
+
+    public async ValueTask DisposeAsync() {
+        if (js != null) await js.DisposeAsync();
+    }
+}

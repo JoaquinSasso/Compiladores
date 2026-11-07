@@ -20,7 +20,7 @@ Elegimos un **compilador de álgebra relacional que genera SQL**. Toma el álgeb
 | 2. Construcción del AST | ✅ Hecha: el programa imprime el árbol |
 | 3. Análisis semántico (tabla de símbolos, esquemas, chequeos) | ✅ Hecha: el programa imprime el esquema de cada sentencia |
 | 4. Generación de SQL | ✅ Hecha: el programa imprime un script SQL para SQLite |
-| 5. Integración web (Blazor WASM) | Futuro, fuera del alcance de la evaluación |
+| 5. Integración web (Blazor WASM) | Prototipo en `Web/` (PWA, funciona sin conexión). Fuera del alcance de la evaluación |
 
 ## Entorno
 
@@ -58,7 +58,9 @@ Todo el proyecto vive en la raíz de `Algebra Relacional/` (el repositorio git e
 | `Ast.cs` | Las clases de los nodos del AST y la impresión del árbol (`ImpresorAST`). |
 | `Semantico.cs` | Análisis semántico: tabla de símbolos, esquemas (`Esquema`, `Atributo`, `Dominio`) y chequeos. |
 | `Generador.cs` | Generación de SQL para SQLite a partir del AST validado. |
-| `Program.cs` | Punto de entrada: lee el archivo, agrega el BOM y ejecuta parser → semántico → generador. Imprime el SQL (con `--esquemas`, los esquemas; con `--ast`, solo el AST). |
+| `Compilador.cs` | La biblioteca: `Compilador.Compilar(fuente)` agrega el BOM y ejecuta parser → semántico → generador. Devuelve `ResultadoCompilacion { Errores, Programa, Ast, Sql }`, sin escribir en consola. La usan `Program.cs` y la web. |
+| `Program.cs` | La línea de comandos: lee el archivo, llama a `Compilador.Compilar` e imprime el SQL (con `--esquemas`, los esquemas; con `--ast`, solo el AST). |
+| `Web/` | La app web (Blazor WebAssembly, PWA). Ver la sección "La app web". |
 | `probar.sh` | Corre todas las pruebas, y verifica que `Gramatica.atg` esté al día y sea LL(1) para Coco/R. |
 | `GUIA.md` | Guía para la exposición: las fases con un ejemplo real, y cada operador escrito con el teclado latino. Los ejemplos de su sección 4 se verifican a mano al cambiar el lenguaje. |
 | `ejemplos/*.ra` | Programas de ejemplo para la exposición (no son pruebas). |
@@ -238,12 +240,23 @@ Recorre el AST y calcula el **esquema de salida** de cada `ExpRel` (lista ordena
 
 ## Próximos pasos
 
-- Una función de biblioteca `Compilar(string fuente) → { sql, errores, ast }`, sin dependencias de consola (ver abajo).
 - Traducir al castellano los mensajes de error de sintaxis de Coco/R (trampa 9).
 
-## Integración futura con la web
+## La app web (`Web/`)
 
-El compilador tiene que funcionar como una **biblioteca sin dependencias de interfaz**, con una función del estilo `Compilar(string fuente) → { sql, errores, ast }`. El texto que llegue desde la web se convierte en un stream UTF-8 con BOM (ver la trampa 2). La interfaz mostraría los símbolos griegos con botones para insertarlos; el lenguaje ya acepta tanto los símbolos como las palabras.
+Prototipo de una interfaz para los alumnos: **Blazor WebAssembly** (el compilador corre en el navegador) + **sql.js** (SQLite 3.49 compilado a WebAssembly) para ejecutar el SQL. Es una **PWA**: se puede instalar en el teléfono y funciona sin conexión (el service worker guarda todo en caché la primera vez).
+
+- `Web/ARWeb.csproj` **enlaza los archivos del compilador** (`..\Ast.cs`, `..\Parser.cs`, ..., `..\Compilador.cs`; todos menos `Program.cs`): no hay copias. `AR.csproj` excluye `Web/**` para no compilar la web en la línea de comandos.
+- `Web/Pages/Home.razor`: la única página, con dos pestañas. **Calculadora**: teclado de símbolos (`Web/Teclado.cs`), editor de la consulta, resultados en tablas, errores, el SQL generado y el AST. **Dataset**: editor de las tablas (abrir archivo, cargar el ejemplo de `Web/Ejemplos.cs`, vaciar) con la lista de tablas y sus esquemas, o sus errores.
+- **Cómo compila:** el programa es `dataset + "\n" + consulta`. Los errores con línea mayor que la cantidad de líneas del dataset son de la consulta (se les resta ese desplazamiento); los demás se muestran como "dataset, línea N".
+- `Web/wwwroot/js/app.js`: JSInterop. `ejecutarSql` corre el script sentencia por sentencia (`iterateStatements`) para devolver un resultado por cada consulta, aunque no tenga filas (`db.exec` omite las que no tienen filas). También inserta símbolos en el cursor y guarda la consulta y el dataset en `localStorage`.
+- `Web/wwwroot/lib/sqljs/`: sql.js 1.14.2 (licencia MIT), copiado del paquete de npm, para que funcione sin internet.
+- El service worker solo cachea en la versión publicada (`dotnet publish`), no con `dotnet run`.
+
+```bash
+dotnet run --project Web                                # desarrollo: http://localhost:5041
+dotnet publish Web -c Release -o Web/bin/publicada      # versión publicada (Web/bin/publicada/wwwroot)
+```
 
 ## Estilo
 

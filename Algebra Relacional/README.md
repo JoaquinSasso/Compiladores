@@ -17,7 +17,9 @@ operador con el teclado, leer [GUIA.md](GUIA.md).
 | `Semantico.cs` | Análisis semántico: tabla de símbolos, esquemas y chequeos. |
 | `Generador.cs` | Generación del SQL. |
 | `Scanner.frame`, `Parser.frame` | Plantillas de Coco/R. Tienen que ser de la misma versión que el Coco que usen. |
-| `Program.cs` | Programa principal: lee un archivo y ejecuta parser → semántico → generador. |
+| `Compilador.cs` | El compilador como biblioteca: `Compilador.Compilar(fuente)` devuelve los errores, el AST y el SQL. |
+| `Program.cs` | Programa principal (línea de comandos): lee un archivo y llama a `Compilador.Compilar`. |
+| `Web/` | La app web: calculadora de álgebra relacional que se instala como PWA y funciona sin conexión. |
 | `pruebas/validas/` | Programas sin errores de sintaxis. |
 | `pruebas/invalidas/` | Programas que tienen que dar errores de sintaxis. |
 | `pruebas/ast/` | Cada `.ra` tiene al lado un `.esperado` con el árbol escrito a mano. |
@@ -69,3 +71,19 @@ es LL(1). Se genera en otra carpeta para no pisar `Parser.cs` y `Scanner.cs`; co
 `probar.sh` verifica que `Gramatica.atg` esté al día con `AR.atg` y que Coco/R la acepte sin avisos.
 
 Requiere .NET 10 (`net10.0` en `AR.csproj`), mono para ejecutar `Coco.exe` y Python 3 para las pruebas de SQL.
+
+## App web
+
+En `Web/` hay una app web (Blazor WebAssembly) que usa el mismo compilador: una
+calculadora con botones para los símbolos y una pestaña para cargar el dataset. El
+SQL se ejecuta en el navegador con SQLite compilado a WebAssembly (sql.js), así que
+no necesita servidor. Se puede instalar en el teléfono y funciona sin conexión.
+
+```bash
+dotnet run --project Web                             # abrir http://localhost:5041
+dotnet publish Web -c Release -o Web/bin/publicada   # para subirla a un hosting estático
+```
+
+El modo sin conexión solo funciona en la versión publicada. Para probarla, servir
+`Web/bin/publicada/wwwroot` con cualquier servidor estático, por ejemplo
+`python -m http.server 5050 --directory Web/bin/publicada/wwwroot`.

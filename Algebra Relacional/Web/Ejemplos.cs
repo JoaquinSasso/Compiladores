@@ -1,0 +1,51 @@
+namespace ARWeb;
+
+// Lo que muestra la app la primera vez (o al tocar "Cargar ejemplo"):
+// el dataset de la clase de álgebra de Base de Datos 1 y una consulta.
+public static class Ejemplos {
+    public const string Dataset =
+@"group: ClaseAlgebra
+materia = {
+codM, nomM, areaConoc
+1, 'Base de Datos', 'ISyBD'
+2, 'Programacion Procedural', 'AyP'
+3, 'Algoritmos', 'AyP'
+4, 'Optativa', 'AyP'
+}
+
+alumno = {
+cuil, nyAp, dire
+10, 'Juan', 'Ignacio de la Roza 1000 Oeste'
+20, 'Ana', 'Ignacio de la Roza 90 Este'
+30, 'Andrea', 'Av.Libertador 100 Oeste'
+50, 'Tomas', 'Aberastain 223 Este'
+}
+
+examen = {
+cuil, codM, fecha, nota
+10, 1, '10/10/2020', 10
+10, 1, '11/9/20202', 2
+10, 3, '11/9/20201', 2
+20, 1, '13/9/20202', 7
+20, 2, '13/10/2020', 10
+20, 3, '01/9/20202', 2
+}
+
+boleta = {
+cuil, codM, fecha
+10, 1, '11/9/20202'
+10, 3, '11/9/20201'
+20, 1, '13/9/20202'
+20, 2, '13/10/2020'
+20, 3, '01/9/20202'
+20, 4, '01/9/20202'
+30, 2, '10/7/20202'
+}
+";
+
+    public const string Consulta =
+@"-- Alumnos que aprobaron algún examen
+aprobados = π cuil (σ nota >= 4 (examen))
+π nyAp (alumno ⋈ aprobados)
+";
+}

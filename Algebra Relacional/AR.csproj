@@ -11,5 +11,9 @@
   <ItemGroup>
     <None Remove="*.frame" />
     <None Remove="*.atg" />
+    <!-- La app web es otro proyecto (Web/ARWeb.csproj), que usa estos mismos archivos -->
+    <Compile Remove="Web/**" />
+    <None Remove="Web/**" />
+    <Content Remove="Web/**" />
   </ItemGroup>
 </Project>

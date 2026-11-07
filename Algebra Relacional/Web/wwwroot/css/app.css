@@ -1,0 +1,358 @@
+/* ------------------------------------------------------------- Colores --- */
+:root {
+    --fondo: #f6f7f9;
+    --superficie: #ffffff;
+    --borde: #d9dde3;
+    --texto: #1b1f24;
+    --tenue: #5b6470;
+    --acento: #2457c5;
+    --acento-texto: #ffffff;
+    --acento-suave: #e8eefb;
+    --tecla: #eef1f5;
+    --tecla-hover: #e1e6ee;
+    --error: #b42318;
+    --error-fondo: #fdecea;
+    --nulo: #8a929c;
+    --sombra: 0 1px 2px rgba(16, 24, 40, .06);
+    color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --fondo: #111418;
+        --superficie: #1a1e24;
+        --borde: #2e343d;
+        --texto: #e7eaee;
+        --tenue: #9aa3ae;
+        --acento: #7aa2ff;
+        --acento-texto: #0d1526;
+        --acento-suave: #1e2a44;
+        --tecla: #232830;
+        --tecla-hover: #2c323c;
+        --error: #ff8a80;
+        --error-fondo: #3a1d1b;
+        --nulo: #6f7782;
+        --sombra: none;
+        color-scheme: dark;
+    }
+}
+
+/* -------------------------------------------------------------- Base ----- */
+* { box-sizing: border-box; }
+
+html, body { margin: 0; }
+
+body {
+    background: var(--fondo);
+    color: var(--texto);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+    font-size: 16px;
+    line-height: 1.45;
+}
+
+/* Fuentes con los símbolos del álgebra (⋈ ⟕ ⟖ ⟗ ÷ …) */
+.editor, .tecla, code, pre, .logo {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Noto Sans Mono",
+                 "Segoe UI Symbol", "Cambria Math", "Noto Sans Math", "STIX Two Math", monospace;
+}
+
+h1, h2 { margin: 0; }
+
+[hidden] { display: none !important; }
+
+/* ---------------------------------------------------- Barra y pestañas --- */
+.barra {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--superficie);
+    border-bottom: 1px solid var(--borde);
+    padding: 10px 16px 0;
+}
+
+.marca {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.logo {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--acento);
+    color: var(--acento-texto);
+    font-size: 20px;
+    font-weight: 700;
+}
+
+h1 { font-size: 18px; font-weight: 650; }
+
+.pestanas {
+    display: flex;
+    max-width: 960px;
+    margin: 6px auto 0;
+}
+
+.pestana {
+    flex: 1;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: none;
+    color: var(--tenue);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.pestana.activa { color: var(--acento); border-bottom-color: var(--acento); }
+
+@media (min-width: 640px) { .pestana { flex: 0 0 auto; padding: 0 20px; } }
+
+/* En el teléfono no va el título: queda más lugar para el teclado y el editor. */
+@media (max-width: 639px) {
+    .marca { display: none; }
+    .barra { padding-top: 0; }
+    .pestanas { margin-top: 0; }
+}
+
+.insignia {
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--acento-suave);
+    color: var(--acento);
+    font-size: 12px;
+    line-height: 20px;
+}
+
+.insignia.error { background: var(--error-fondo); color: var(--error); }
+
+/* ------------------------------------------------------------ Secciones --- */
+main { max-width: 960px; margin: 0 auto; padding: 16px; }
+
+.seccion { display: flex; flex-direction: column; gap: 12px; }
+
+.etiqueta { font-size: 14px; font-weight: 600; color: var(--tenue); margin-bottom: -6px; }
+
+.explicacion { margin: 0; color: var(--tenue); }
+
+.subtitulo { font-size: 16px; }
+
+/* --------------------------------------------------------------- Teclado --- */
+/* En el teléfono todas las teclas van en una sola grilla, sin dejar filas a
+   medio llenar entre grupos; en pantallas anchas, cada grupo con su separador. */
+.teclado {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+    gap: 6px;
+    padding: 8px;
+    background: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    box-shadow: var(--sombra);
+}
+
+.grupo { display: contents; }
+
+@media (min-width: 640px) {
+    .teclado { display: flex; flex-wrap: wrap; gap: 12px; padding: 10px; }
+    .grupo { display: flex; flex-wrap: wrap; gap: 6px; }
+    .grupo + .grupo { padding-left: 12px; border-left: 1px solid var(--borde); }
+}
+
+.tecla {
+    min-width: 38px;
+    height: 40px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--tecla);
+    color: var(--texto);
+    font-size: 20px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.tecla:hover { background: var(--tecla-hover); }
+.tecla:active { transform: scale(.96); }
+
+/* ---------------------------------------------------------------- Editor --- */
+.editor {
+    width: 100%;
+    min-height: 120px;
+    padding: 12px;
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    background: var(--superficie);
+    color: var(--texto);
+    font-size: 16px;            /* 16px: iOS no hace zoom al escribir */
+    line-height: 1.5;
+    resize: vertical;
+    box-shadow: var(--sombra);
+}
+
+.editor.dataset { min-height: 320px; font-size: 15px; }
+
+.editor:focus, .tecla:focus-visible, .boton:focus-visible, .pestana:focus-visible {
+    outline: 2px solid var(--acento);
+    outline-offset: 1px;
+}
+
+/* ---------------------------------------------------------------- Botones --- */
+.acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.boton {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    background: var(--superficie);
+    color: var(--texto);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.boton.primario { background: var(--acento); border-color: var(--acento); color: var(--acento-texto); padding: 0 24px; }
+.boton:disabled { opacity: .6; cursor: progress; }
+
+.pista { color: var(--tenue); font-size: 14px; }
+
+.oculto { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+
+.enlace {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* ---------------------------------------------------------------- Avisos --- */
+.aviso {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--acento-suave);
+}
+
+.aviso.error { background: var(--error-fondo); color: var(--error); }
+.aviso h2 { font-size: 15px; margin-bottom: 4px; }
+.aviso ul { margin: 0; padding-left: 18px; }
+.aviso li + li { margin-top: 4px; }
+.donde { font-weight: 600; margin-right: 4px; }
+
+/* ------------------------------------------------------------ Resultados --- */
+.resultado {
+    background: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    box-shadow: var(--sombra);
+    overflow: hidden;
+}
+
+.resultado header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    padding: 10px 14px 0;
+}
+
+.resultado h2 { font-size: 15px; }
+.cuenta { color: var(--tenue); font-size: 13px; }
+
+.origen {
+    display: block;
+    padding: 4px 14px 10px;
+    color: var(--tenue);
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+
+.tabla-scroll { overflow-x: auto; border-top: 1px solid var(--borde); }
+
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+
+th, td { padding: 8px 14px; text-align: left; white-space: nowrap; }
+th { background: var(--fondo); font-size: 13px; font-weight: 650; color: var(--tenue); }
+tbody tr + tr td { border-top: 1px solid var(--borde); }
+td.nulo { color: var(--nulo); font-style: italic; }
+
+.vacio { margin: 0; padding: 12px 14px; color: var(--tenue); }
+
+/* ------------------------------------------------------- SQL y árbol --- */
+.detalle {
+    background: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+}
+
+.detalle summary { padding: 12px 14px; font-weight: 600; cursor: pointer; }
+
+.detalle pre {
+    margin: 0;
+    padding: 12px 14px;
+    border-top: 1px solid var(--borde);
+    overflow-x: auto;
+    font-size: 13px;
+}
+
+/* ------------------------------------------------------------ Tablas --- */
+.tablas { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+.tablas li {
+    padding: 10px 14px;
+    background: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+}
+
+.tablas strong { margin-right: 8px; }
+.columnas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+.columna {
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: var(--tecla);
+    font-size: 13px;
+}
+
+/* ------------------------------------------- Carga y errores de Blazor --- */
+.cargando {
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    color: var(--tenue);
+}
+
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: 12px 16px;
+    background: var(--error-fondo);
+    color: var(--error);
+}
+
+#blazor-error-ui .reload { color: inherit; font-weight: 600; margin-left: 8px; }
+#blazor-error-ui .dismiss { float: right; cursor: pointer; }

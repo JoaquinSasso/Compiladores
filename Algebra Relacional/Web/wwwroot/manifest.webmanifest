@@ -1,0 +1,26 @@
+{
+  "name": "Álgebra relacional → SQL",
+  "short_name": "Álgebra R",
+  "description": "Calculadora de álgebra relacional para Base de Datos 1: traduce a SQL y ejecuta las consultas, sin conexión.",
+  "lang": "es",
+  "id": "./",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6f7f9",
+  "theme_color": "#2457c5",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    }
+  ]
+}

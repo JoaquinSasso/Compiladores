@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
+    <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
+    <!-- Avisos típicos del código que genera Coco/R -->
+    <NoWarn>CS0162;CS0168;CS0219;CS0414;CS0649;CS8981</NoWarn>
+  </PropertyGroup>
+
+  <!-- El compilador: los mismos archivos que usa la línea de comandos (todos
+       menos Program.cs). La web llama a Compilador.Compilar(fuente). -->
+  <ItemGroup>
+    <Compile Include="..\Ast.cs" Link="Compilador\Ast.cs" />
+    <Compile Include="..\Scanner.cs" Link="Compilador\Scanner.cs" />
+    <Compile Include="..\Parser.cs" Link="Compilador\Parser.cs" />
+    <Compile Include="..\Semantico.cs" Link="Compilador\Semantico.cs" />
+    <Compile Include="..\Generador.cs" Link="Compilador\Generador.cs" />
+    <Compile Include="..\Compilador.cs" Link="Compilador\Compilador.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.12" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ServiceWorker Include="wwwroot\service-worker.js" PublishedContent="wwwroot\service-worker.published.js" />
+  </ItemGroup>
+
+</Project>
