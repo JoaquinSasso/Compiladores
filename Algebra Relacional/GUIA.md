@@ -35,29 +35,26 @@ En **Windows** los comandos son los mismos, desde Git Bash, con dos cambios: `py
 
 El programa recibe un archivo `.ra` y, según la opción, llega hasta una fase distinta:
 
-```bash
-dotnet run -- ejemplos/aprobados.ra
-```
-
 Compila el programa completo e imprime el script SQL (o los errores).
 
 ```bash
-dotnet run -- --ast ejemplos/aprobados.ra
+dotnet bin/out/AR.dll ejemplos/aprobados.ra
 ```
-
 Solo scanner y parser: imprime el árbol (AST).
 
 ```bash
-dotnet run -- --esquemas ejemplos/aprobados.ra
+dotnet bin/out/AR.dll --ast ejemplos/aprobados.ra
 ```
-
 Hasta el análisis semántico: imprime el esquema de cada sentencia.
 
 ```bash
-dotnet run -- ejemplos/aprobados.ra | python3 pruebas/ejecutar_sql.py
+dotnet bin/out/AR.dll --esquemas ejemplos/aprobados.ra
 ```
-
 Compila y ejecuta el SQL en una base SQLite en memoria: imprime el resultado de cada consulta.
+
+```bash
+dotnet bin/out/AR.dll ejemplos/aprobados.ra | python3 pruebas/ejecutar_sql.py
+```
 
 Si hay errores, el programa los imprime con el formato `-- línea L col C: mensaje` y termina con código de salida 1 (sin errores, con 0).
 
