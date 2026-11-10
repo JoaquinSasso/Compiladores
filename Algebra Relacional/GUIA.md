@@ -1,6 +1,6 @@
 # Guía: cómo se compila una consulta de álgebra relacional
 
-Esta guía recorre, paso a paso, qué hace el compilador con una consulta, desde el texto que escribe el usuario hasta el resultado en SQLite. Todas las salidas que se muestran son las que imprime el compilador de verdad con el archivo [ejemplos/aprobados.ra](ejemplos/aprobados.ra). Al final hay una tabla de cómo se escribe cada operador **solo con el teclado**, sin símbolos griegos.
+Esta guía recorre, paso a paso, qué hace el compilador con una consulta, desde el texto que escribe el usuario hasta el resultado en SQLite. Todas las salidas que se muestran son las que imprime el compilador de verdad con el archivo [ejemplos/aprobados.ra](ejemplos/aprobados.ra). La sección 2 explica cómo ejecutarlo en la consola y en la app web, y cómo correr las pruebas. Al final hay una tabla de cómo se escribe cada operador **solo con el teclado**, sin símbolos griegos.
 
 ## 1. Las fases del compilador
 
@@ -19,33 +19,133 @@ texto .ra ──► Scanner ──► Parser ──► AST ──► Semántico 
 
 ## 2. Cómo ejecutarlo
 
-Hace falta .NET 10. Para correr las pruebas también Python 3, y mono solo si se cambia la gramática.
+El mismo compilador (`Scanner.cs`, `Parser.cs`, `Ast.cs`, `Semantico.cs`, `Generador.cs` y `Compilador.cs`) se usa de dos formas: desde la **consola** (`Program.cs`) y desde la **app web** (`Web/`), que enlaza esos mismos archivos sin copiarlos. Todos los comandos se corren desde la carpeta `Algebra Relacional/`.
+
+### 2.1. Qué hace falta
+
+| Herramienta | Para qué |
+|---|---|
+| .NET 10 (`dotnet-sdk-10.0`) | Compilar y correr el compilador, la app web y sus pruebas. **Es lo único obligatorio.** |
+| Python 3 | Ejecutar el SQL generado (`pruebas/ejecutar_sql.py` usa el módulo `sqlite3`, no hace falta instalar SQLite) y correr `probar.sh`. |
+| mono | Solo en Ubuntu, y solo para correr `Coco.exe` (si se cambia la gramática). En Windows `Coco.exe` corre directo. |
+
+En **Windows** los comandos son los mismos, desde Git Bash, con dos cambios: `python` en lugar de `python3`, y `./Coco.exe` en lugar de `mono Coco.exe`.
+
+### 2.2. En la consola
+
+El programa recibe un archivo `.ra` y, según la opción, llega hasta una fase distinta:
 
 ```bash
-dotnet run -- ejemplos/aprobados.ra               # compila: imprime el script SQL
+dotnet run -- ejemplos/aprobados.ra
+```
+
+Compila el programa completo e imprime el script SQL (o los errores).
+
+```bash
+dotnet run -- --ast ejemplos/aprobados.ra
+```
+
+Solo scanner y parser: imprime el árbol (AST).
+
+```bash
+dotnet run -- --esquemas ejemplos/aprobados.ra
+```
+
+Hasta el análisis semántico: imprime el esquema de cada sentencia.
+
+```bash
+dotnet run -- ejemplos/aprobados.ra | python3 pruebas/ejecutar_sql.py
+```
+
+Compila y ejecuta el SQL en una base SQLite en memoria: imprime el resultado de cada consulta.
+
+Si hay errores, el programa los imprime con el formato `-- línea L col C: mensaje` y termina con código de salida 1 (sin errores, con 0).
+
+**Para la exposición** conviene usar el compilador ya armado: `dotnet run --` vuelve a compilar el proyecto cada vez y tarda unos segundos. Después de correr `./probar.sh` (o `dotnet build -c Release -o bin/out`) queda `bin/out/AR.dll`, y se usa igual:
+
+```bash
+dotnet bin/out/AR.dll --ast ejemplos/aprobados.ra
+```
+
+**Si se cambia la gramática** (`AR.atg`), hay que regenerar el scanner y el parser, y la versión sin acciones (`Gramatica.atg`). Coco/R tiene que terminar con `0 errors detected` y sin ningún `LL1 warning` (el aviso de mono "The runtime version supported by this application is unavailable" es inofensivo):
+
+```bash
+mono Coco.exe AR.atg
 ```
 
 ```bash
-dotnet run -- --ast ejemplos/aprobados.ra         # solo sintaxis: imprime el árbol
+python3 extraer_gramatica.py
 ```
+
+### 2.3. En la app web
+
+La app web es una calculadora de álgebra relacional para los alumnos de Base de Datos 1. Está hecha con **Blazor WebAssembly**: el compilador en C# se ejecuta **dentro del navegador**, y el SQL que genera se ejecuta con **sql.js** (SQLite compilado a WebAssembly). No hay servidor que compile ni que guarde datos.
+
+**Para desarrollo** (se recompila sola al cambiar el código):
 
 ```bash
-dotnet run -- --esquemas ejemplos/aprobados.ra    # hasta el semántico: imprime los esquemas
+dotnet run --project Web
 ```
+
+Se abre en http://localhost:5041. La pestaña **Calculadora** ya trae el dataset de la cátedra y una consulta de ejemplo: con **Ejecutar** (o Ctrl+Enter) se ve el resultado, y abajo el **Paso a paso** (el resultado de cada operador del árbol), el **SQL generado** y el **Árbol sintáctico**. Los errores se marcan mientras se escribe, con el mismo mensaje que en la consola (la línea se cuenta desde el principio de la consulta, sin el dataset).
+
+**Para probarla desde el teléfono** en la misma red Wi-Fi, el perfil `red` la deja escuchando en todas las interfaces:
 
 ```bash
-dotnet run -- ejemplos/aprobados.ra | python3 pruebas/ejecutar_sql.py   # ejecuta el SQL en SQLite
+dotnet run --project Web --launch-profile red
 ```
+
+En el teléfono se abre `http://<IP de la computadora>:5041` (la IP se ve con `hostname -I` en Ubuntu o `ipconfig` en Windows).
+
+**La versión publicada** es la que se sube a un hosting: es más liviana y es la única que funciona **sin conexión** (el service worker guarda todo en caché la primera vez, y se puede instalar en el teléfono como una app):
 
 ```bash
-./probar.sh                                       # corre todas las pruebas
+dotnet publish Web -c Release -o Web/bin/publicada
 ```
+
+Tarda menos de un minuto. El resultado es un sitio estático en `Web/bin/publicada/wwwroot`, que se puede probar con cualquier servidor, por ejemplo el de Python, y abrir en http://localhost:5050:
 
 ```bash
-mono Coco.exe AR.atg                              # regenera Scanner.cs y Parser.cs (solo si se cambia AR.atg)
+python3 -m http.server 5050 --directory Web/bin/publicada/wwwroot
 ```
 
-Para la exposición conviene tener `bin/out/AR.dll` ya compilado y usar `dotnet bin/out/AR.dll` en lugar de `dotnet run --`, que es más rápido (`./probar.sh` lo deja armado).
+**GitHub Pages:** en cada push a `main` que toque `Algebra Relacional/`, `.github/workflows/web.yml` corre `probar.sh` y, si todas las pruebas pasan, publica la app en `https://<usuario>.github.io/<repositorio>/`. Hay que activarlo una sola vez en GitHub: *Settings → Pages → Source: GitHub Actions*. Como GitHub Pages sirve la app en una subcarpeta, el workflow la adapta con `Web/preparar_pages.py` (en Git Bash va con `MSYS_NO_PATHCONV=1` delante, para que no convierta `/Compiladores/` en una ruta de Windows):
+
+```bash
+python3 Web/preparar_pages.py Web/bin/publicada/wwwroot /Compiladores/
+```
+
+### 2.4. Las pruebas
+
+```bash
+./probar.sh
+```
+
+Compila el compilador en `bin/out/` y corre **todas** las pruebas (tarda unos 20 segundos). Cada línea dice `bien` o `FALLA`, y al final tiene que decir `0 prueba(s) fallaron`. Verifica, en este orden:
+
+| Qué | Dónde | Cómo se verifica |
+|---|---|---|
+| La gramática sin acciones | `Gramatica.atg` | Que esté al día con `AR.atg` y que Coco/R la acepte sin avisos LL(1) (este paso se saltea si no está mono). |
+| Programas válidos | `pruebas/validas/*.ra` | Con `--ast`: no tienen que dar errores de sintaxis. |
+| Programas inválidos | `pruebas/invalidas/*.ra` | Con `--ast`: tienen que dar un error de sintaxis. |
+| El árbol | `pruebas/ast/*.ra` | La salida de `--ast` tiene que ser idéntica al `.esperado`, escrito a mano. |
+| El análisis semántico | `pruebas/semanticas/*.ra` | La salida de `--esquemas` (esquemas o errores) tiene que ser idéntica al `.esperado`. |
+| El SQL generado | `pruebas/sql/*.ra` | El SQL se ejecuta en SQLite y el resultado tiene que ser idéntico al `.esperado`, calculado a mano. |
+| La lógica de la app web | `PruebasWeb/` | Pruebas de xunit sobre `Web/Servicios` (compilar dataset + consulta, paso a paso, corrección de ejercicios, CSV...). |
+
+Las pruebas de la app web también se pueden correr solas:
+
+```bash
+dotnet test PruebasWeb
+```
+
+Para ver por qué falla una prueba del compilador, se corre a mano y se compara con su `.esperado`, por ejemplo:
+
+```bash
+diff <(dotnet bin/out/AR.dll --esquemas pruebas/semanticas/16_division.ra) pruebas/semanticas/16_division.esperado
+```
+
+Las mismas pruebas corren en GitHub Actions antes de publicar la web: si alguna falla, no se publica.
 
 ## 3. Ejemplo paso a paso
 
@@ -279,4 +379,5 @@ cuil, nyAp, carrera
 4. `dotnet bin/out/AR.dll ejemplos/aprobados.ra`: el SQL, leyendo las capas de adentro hacia afuera.
 5. Lo mismo con `| python3 pruebas/ejecutar_sql.py`: el resultado.
 6. Romper la consulta a propósito para ver los dos tipos de error: un paréntesis sin cerrar (error de sintaxis) y `pi apellido (alumno)` (error semántico).
-7. Cerrar con `./probar.sh`: todas las pruebas en `0 prueba(s) fallaron`.
+7. Mostrar el mismo compilador en la app web (`dotnet run --project Web`, o la versión publicada): ejecutar la consulta de ejemplo y abrir el **Paso a paso**, el **SQL generado** y el **Árbol sintáctico**. Escribir con un error para ver que se marca mientras se escribe, con el mismo mensaje que en la consola.
+8. Cerrar con `./probar.sh`: todas las pruebas en `0 prueba(s) fallaron`.
